@@ -103,7 +103,7 @@ export const dictionary: Record<Locale, Dictionary> = {
       {
         emoji: "🛠️",
         title: "Built around your workflow",
-        description: "No generic chatbot — automation shaped around how your team actually works.",
+        description: "No generic chatbot, automation shaped around how your team actually works.",
       },
       {
         emoji: "🔒",
@@ -229,7 +229,7 @@ export const dictionary: Record<Locale, Dictionary> = {
     contact: {
       eyebrow: "Get in touch",
       heading: "Send us a message",
-      description: "Tell us what's taking up time in your business — we'll get back to you shortly.",
+      description: "Tell us what's taking up time in your business, we'll get back to you shortly.",
       nameLabel: "Name",
       namePlaceholder: "Your name",
       emailLabel: "Email",
@@ -238,13 +238,13 @@ export const dictionary: Record<Locale, Dictionary> = {
       messagePlaceholder: "What's taking up time in your business?",
       submit: "Send message",
       submitting: "Sending…",
-      success: "Thanks — we'll be in touch soon.",
+      success: "Thanks, we'll be in touch soon.",
       recaptchaError: "Please confirm you're not a robot before sending.",
       genericError: "Something went wrong.",
     },
     footer: {
       description:
-        "Tailored AI automation for SMEs — connecting the tools you already use so repetitive work happens without anyone touching it.",
+        "Tailored AI automation for SMEs, connecting the tools you already use so repetitive work happens without anyone touching it.",
       location: "Delft, Netherlands",
       copyright: "Arisoft. All rights reserved.",
       backToTop: "Back to top",
@@ -259,11 +259,11 @@ export const dictionary: Record<Locale, Dictionary> = {
       getInTouch: "Neem contact op",
     },
     hero: {
-      eyebrow: "AI-automatisering voor het Nederlandse mkb",
+      eyebrow: "AI-automatisering voor het Nederlandse MKB",
       headlinePrefix: "AI-automatisering die past bij jouw bedrijf,",
       headlineHighlight: "geen standaard chatbot",
       subtext:
-        "Arisoft bouwt AI-automatisering op maat voor het mkb en koppelt de tools die je al gebruikt, zodat terugkerend werk zoals support, data-invoer, follow-ups en rapportages vanzelf gebeurt.",
+        "Arisoft bouwt AI-automatisering op maat voor het MKB en koppelt de tools die je al gebruikt, zodat terugkerend werk zoals support, data-invoer, follow-ups en rapportages vanzelf gebeurt.",
       ctaPrimary: "Neem contact op",
       ctaSecondary: "Bekijk hoe we werken",
     },
@@ -271,7 +271,7 @@ export const dictionary: Record<Locale, Dictionary> = {
       {
         emoji: "📞",
         title: "Gratis kennismakingsgesprek",
-        description: "Vrijblijvend — gewoon een gesprek over waar automatisering kan helpen.",
+        description: "Vrijblijvend, gewoon een gesprek over waar automatisering kan helpen.",
       },
       {
         emoji: "🛠️",
@@ -327,7 +327,7 @@ export const dictionary: Record<Locale, Dictionary> = {
         {
           title: "Lead-intake",
           description:
-            "Leg nieuwe leads vast, kwalificeer ze en volg ze direct op — dag en nacht.",
+            "Leg nieuwe leads vast, kwalificeer ze en volg ze direct op, dag en nacht.",
         },
         {
           title: "Bedrijfskennis",
@@ -402,7 +402,7 @@ export const dictionary: Record<Locale, Dictionary> = {
     contact: {
       eyebrow: "Neem contact op",
       heading: "Stuur ons een bericht",
-      description: "Vertel ons wat tijd kost in jouw bedrijf — we nemen snel contact met je op.",
+      description: "Vertel ons wat tijd kost in jouw bedrijf, we nemen snel contact met je op.",
       nameLabel: "Naam",
       namePlaceholder: "Je naam",
       emailLabel: "E-mail",
@@ -411,13 +411,13 @@ export const dictionary: Record<Locale, Dictionary> = {
       messagePlaceholder: "Wat kost tijd in jouw bedrijf?",
       submit: "Verstuur bericht",
       submitting: "Versturen…",
-      success: "Bedankt — we nemen snel contact met je op.",
+      success: "Bedankt, we nemen snel contact met je op.",
       recaptchaError: "Bevestig dat je geen robot bent voordat je verstuurt.",
       genericError: "Er is iets misgegaan.",
     },
     footer: {
       description:
-        "AI-automatisering op maat voor het mkb — we koppelen de tools die je al gebruikt zodat terugkerend werk vanzelf gebeurt.",
+        "AI-automatisering op maat voor het MKB, we koppelen de tools die je al gebruikt zodat terugkerend werk vanzelf gebeurt.",
       location: "Delft, Nederland",
       copyright: "Arisoft. Alle rechten voorbehouden.",
       backToTop: "Terug naar boven",

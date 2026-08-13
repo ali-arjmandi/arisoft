@@ -10,7 +10,7 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Arisoft — Tailored AI automation for SMEs",
+  title: "Arisoft, Tailored AI automation for SMEs",
   description: "Arisoft builds tailored AI automation for SMEs in the Netherlands.",
 };
 
