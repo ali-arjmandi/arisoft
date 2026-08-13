@@ -86,7 +86,7 @@ export const dictionary: Record<Locale, Dictionary> = {
       getInTouch: "Get in touch",
     },
     hero: {
-      eyebrow: "AI automation for Dutch SMEs",
+      eyebrow: "AI automation for SMEs",
       headlinePrefix: "AI automation that fits your business,",
       headlineHighlight: "not a generic chatbot",
       subtext:
