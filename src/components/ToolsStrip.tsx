@@ -3,9 +3,11 @@
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 
 const TOOLS = [
-  { name: "Slack", color: "#4A154B" },
-  { name: "Notion", color: "#000000" },
-  { name: "GitHub", color: "#181717" },
+  { name: "Excel", color: "#217346" },
+  { name: "Outlook", color: "#0078D4" },
+  { name: "Gmail", color: "#EA4335" },
+  { name: "Google Sheets", color: "#0F9D58" },
+  { name: "WhatsApp", color: "#25D366" },
   { name: "Google Drive", color: "#1FA463" },
   { name: "Jira", color: "#0052CC" },
 ];

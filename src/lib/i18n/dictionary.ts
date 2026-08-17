@@ -180,7 +180,7 @@ export const dictionary: Record<Locale, Dictionary> = {
         {
           title: "Connect the tools you already rely on",
           description:
-            "No rip-and-replace. We plug into Slack, Notion, GitHub, Drive, and whatever else runs your business.",
+            "No rip-and-replace. We plug into Excel, Outlook, Gmail, Google Sheets, WhatsApp, and whatever else runs your business.",
         },
       ],
     },
@@ -353,7 +353,7 @@ export const dictionary: Record<Locale, Dictionary> = {
         {
           title: "Koppel de tools die je al gebruikt",
           description:
-            "Geen rigoureuze vervanging. We sluiten aan op Slack, Notion, GitHub, Drive en wat je bedrijf verder draaiende houdt.",
+            "Geen rigoureuze vervanging. We sluiten aan op Excel, Outlook, Gmail, Google Sheets, WhatsApp en wat je bedrijf verder draaiende houdt.",
         },
       ],
     },

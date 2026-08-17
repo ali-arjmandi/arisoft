@@ -42,7 +42,7 @@ export function Services() {
                 {SERVICE_ICONS[index]}
               </svg>
             </span>
-            <h3 className="mt-5 font-semibold text-foreground">{service.title}</h3>
+            <h3 className="mt-5 flex min-h-12 items-center font-semibold text-foreground">{service.title}</h3>
             <p className="mt-2 text-sm leading-relaxed text-body">{service.description}</p>
           </div>
         ))}

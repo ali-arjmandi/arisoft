@@ -40,7 +40,9 @@ export function Process() {
                 </svg>
               </div>
               <span className="text-sm font-semibold text-gradient">0{index + 1}</span>
-              <h3 className="text-lg font-semibold text-foreground">{step.title}</h3>
+              <h3 className="flex min-h-14 items-center justify-center text-lg font-semibold text-foreground">
+                {step.title}
+              </h3>
               <p className="text-sm leading-relaxed text-body">{step.description}</p>
 
               {index < steps.length - 1 && (
