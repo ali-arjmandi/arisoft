@@ -42,7 +42,12 @@ export function renderEmail(content: EmailContent): string {
 const DATA_URI_IMAGE = /src="data:image\/([a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=]+)"/g;
 
 export interface EmailAttachment {
-  cid: string;
+  // Inline logo attachments (produced below) are referenced by cid: and have
+  // no filename. User-uploaded attachments (added by the send route) have a
+  // filename and no cid — nodemailer shows those as normal downloadable
+  // attachments rather than inlining them into the HTML.
+  cid?: string;
+  filename?: string;
   content: Buffer;
   contentType: string;
 }

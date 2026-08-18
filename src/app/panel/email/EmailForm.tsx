@@ -1,9 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Editor, { BtnBold, BtnItalic, BtnLink, Toolbar } from "react-simple-wysiwyg";
 import { ALLOWED_SENDERS, type AllowedSender } from "@/lib/email/senders";
 import { type ContentFieldName, type EmailContent } from "@/lib/email/content";
+import { validateAttachments, MAX_ATTACHMENTS_TOTAL_BYTES } from "@/lib/email/attachments";
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 type Status = "idle" | "submitting" | "success" | "error";
 
@@ -32,18 +39,38 @@ const fieldClassName =
 export function EmailForm({ initialValues }: { initialValues: EmailContent }) {
   const [content, setContent] = useState<EmailContent>(initialValues);
   const [includeUnsubscribe, setIncludeUnsubscribe] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
   const [to, setTo] = useState("");
   const [from, setFrom] = useState<AllowedSender>(ALLOWED_SENDERS[0]);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   function updateField(name: ContentFieldName, value: string) {
     setContent((prev) => ({ ...prev, [name]: value }));
   }
 
+  function addFiles(selected: FileList | null) {
+    if (!selected || selected.length === 0) return;
+    setFiles((prev) => [...prev, ...Array.from(selected)]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function removeFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+
+    const attachmentErrors = validateAttachments(files);
+    if (attachmentErrors.length > 0) {
+      setStatus("error");
+      setError(attachmentErrors.join(" "));
+      return;
+    }
+
     setStatus("submitting");
 
     const payloadContent: EmailContent = {
@@ -51,11 +78,18 @@ export function EmailForm({ initialValues }: { initialValues: EmailContent }) {
       unsubscribeUrl: includeUnsubscribe ? content.unsubscribeUrl : "",
     };
 
+    const formData = new FormData();
+    formData.set("to", to);
+    formData.set("from", from);
+    formData.set("content", JSON.stringify(payloadContent));
+    for (const file of files) {
+      formData.append("files", file);
+    }
+
     try {
       const res = await fetch("/api/panel/send-email", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to, from, content: payloadContent }),
+        body: formData,
       });
 
       if (!res.ok) {
@@ -130,6 +164,50 @@ export function EmailForm({ initialValues }: { initialValues: EmailContent }) {
       </div>
 
       {AFTER_BODY_FIELDS.map(renderField)}
+
+      <div>
+        <label htmlFor="attachments" className="text-sm font-medium text-foreground">
+          Attachments
+        </label>
+        <input
+          ref={fileInputRef}
+          id="attachments"
+          type="file"
+          multiple
+          onChange={(event) => addFiles(event.target.files)}
+          className="mt-2 block w-full text-sm text-body file:mr-4 file:rounded-full file:border file:border-primary file:bg-transparent file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary hover:file:bg-surface-muted"
+        />
+        <p className="mt-1 text-xs text-muted">
+          Up to 25MB total. Files Gmail blocks (.exe, .zip-wrapped executables, etc.) will be rejected.
+        </p>
+
+        {files.length > 0 && (
+          <ul className="mt-3 space-y-2">
+            {files.map((file, index) => (
+              <li
+                key={`${file.name}-${file.lastModified}-${index}`}
+                className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm"
+              >
+                <span className="truncate text-foreground">{file.name}</span>
+                <span className="ml-3 flex shrink-0 items-center gap-3">
+                  <span className="text-xs text-muted">{formatBytes(file.size)}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeFile(index)}
+                    className="text-xs font-medium text-red-600 hover:underline"
+                  >
+                    Remove
+                  </button>
+                </span>
+              </li>
+            ))}
+            <li className="text-xs text-muted">
+              Total: {formatBytes(files.reduce((sum, file) => sum + file.size, 0))} /{" "}
+              {formatBytes(MAX_ATTACHMENTS_TOTAL_BYTES)}
+            </li>
+          </ul>
+        )}
+      </div>
 
       <div>
         <label className="flex items-center gap-2 text-sm font-medium text-foreground">
