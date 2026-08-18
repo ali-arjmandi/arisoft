@@ -9,12 +9,12 @@ type Status = "idle" | "analyzing" | "error";
 const fieldClassName =
   "mt-2 w-full rounded-lg border border-[#AAAAAA] px-4 py-3 text-sm placeholder-[#888] outline-none transition-colors focus:border-primary disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-muted";
 
-export function CompanyAnalyzerForm() {
+export function CompanyAnalyzerForm({ initialResult = null }: { initialResult?: CompanyAnalysis | null }) {
   const [companyName, setCompanyName] = useState("");
   const [kvkNumber, setKvkNumber] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
-  const [result, setResult] = useState<CompanyAnalysis | null>(null);
+  const [result, setResult] = useState<CompanyAnalysis | null>(initialResult);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -41,7 +41,12 @@ export function buildCompanyReportHtml(result: CompanyAnalysis, siteUrl: string)
       : '<p class="muted">No opportunities identified.</p>';
 
   const analysisJson = JSON.stringify(result);
-  const formAction = `${siteUrl.replace(/\/$/, "")}/api/panel/report-generate-email`;
+  // GET, not POST: the session cookie is SameSite=Lax, so it's only sent on
+  // a cross-site *GET* navigation (which is what happens when this file is
+  // opened from disk and this form is submitted) — a cross-site POST would
+  // never carry it, and the panel would always see an unauthenticated
+  // request no matter how correct the target URL is.
+  const formAction = `${siteUrl.replace(/\/$/, "")}/panel/company-analyzer`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -113,9 +118,9 @@ export function buildCompanyReportHtml(result: CompanyAnalysis, siteUrl: string)
     ${renderField("Fit score reason", result.fitScoreReason)}
 
     <div class="cta">
-      <p>Generate a personalized outreach email from this analysis in the Arisoft panel.</p>
-      <form method="POST" action="${escapeHtml(formAction)}" target="_blank">
-        <input type="hidden" name="analysis" value="${escapeHtml(analysisJson)}" />
+      <p>Opens this analysis in the Arisoft panel, ready to generate the outreach email.</p>
+      <form method="GET" action="${escapeHtml(formAction)}" target="_blank">
+        <input type="hidden" name="data" value="${escapeHtml(analysisJson)}" />
         <button type="submit">Generate email</button>
       </form>
     </div>
