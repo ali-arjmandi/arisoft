@@ -1,0 +1,24 @@
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - npm ci
+    build:
+      commands:
+        # Amplify only exposes console-configured environment variables to
+        # the build step by default — Next.js server routes (API routes,
+        # proxy.ts) read process.env at actual request time, which is a
+        # separate runtime. Writing them into .env.production here is what
+        # makes them available there too.
+        # https://docs.aws.amazon.com/amplify/latest/userguide/ssr-environment-variables.html
+        - env | grep -e PANEL_ >> .env.production
+        - npm run build
+  artifacts:
+    baseDirectory: .next
+    files:
+      - "**/*"
+  cache:
+    paths:
+      - node_modules/**/*
+      - .next/cache/**/*
