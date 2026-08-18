@@ -1,10 +1,12 @@
 import { content } from "@/lib/email/content";
+import { PanelNav } from "../PanelNav";
+import { LogoutButton } from "../LogoutButton";
 import { EmailForm } from "./EmailForm";
-import { LogoutButton } from "./LogoutButton";
 
 export default function PanelEmailPage() {
   return (
     <div>
+      <PanelNav />
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Send branded email</h1>
