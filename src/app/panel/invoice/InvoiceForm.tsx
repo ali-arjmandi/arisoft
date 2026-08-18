@@ -6,6 +6,8 @@ import { calculateInvoiceTotals } from "@/lib/invoice/calculations";
 import { formatCurrencyEUR } from "@/lib/invoice/format";
 import { generateInvoicePdf } from "@/lib/invoice/generateInvoicePdf";
 import type { InvoiceDocumentData } from "@/lib/invoice/types";
+import { ALLOWED_SENDERS, type AllowedSender } from "@/lib/email/senders";
+import type { EmailContent } from "@/lib/email/content";
 
 type Status = "idle" | "submitting" | "success" | "error";
 
@@ -40,6 +42,49 @@ function sanitizeFilename(value: string): string {
   return value.trim().replace(/[^a-zA-Z0-9-_]+/g, "-") || "invoice";
 }
 
+const AMOUNT_ROW_STYLE =
+  "font-family:'Poppins',Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;padding-top:2px;";
+
+function amountRow(label: string, value: string): string {
+  // A real table, not tab characters — HTML collapses whitespace, so tabs
+  // can't line anything up. The amount column auto-sizes to its widest
+  // cell; left-aligning within it (rather than right-aligning) means every
+  // figure starts at the same shared position regardless of label length,
+  // instead of shorter numbers drifting inward to match a right edge.
+  return `<tr>
+    <td style="${AMOUNT_ROW_STYLE}color:#374151;padding-right:16px;">${label}</td>
+    <td style="${AMOUNT_ROW_STYLE}color:#262626;text-align:left;white-space:nowrap;"><strong>${value}</strong></td>
+  </tr>`;
+}
+
+function buildInvoiceEmailContent(data: InvoiceDocumentData): EmailContent {
+  const { totals, btwRate } = data;
+
+  const amountsTable = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:8px;margin-bottom:8px;">${amountRow(
+    "Subtotal (excl. BTW)",
+    formatCurrencyEUR(totals.amountExclBtw),
+  )}${amountRow(`BTW (${btwRate}%)`, formatCurrencyEUR(totals.btwAmount))}${amountRow(
+    "Total (incl. BTW)",
+    formatCurrencyEUR(totals.amountInclBtw),
+  )}</table>`;
+
+  const body =
+    `${data.description}` +
+    amountsTable +
+    "Please find your invoice attached to this email. If you have any questions about the details or payment, just reply to this email or reach out anytime.";
+
+  return {
+    subject: `Your invoice from Arisoft: ${data.invoiceNumber}`,
+    preheader: "Your invoice is ready, details and payment info inside.",
+    eyebrow: "Invoice",
+    heading: "Your invoice is attached",
+    body,
+    ctaLabel: "",
+    ctaUrl: "",
+    unsubscribeUrl: "",
+  };
+}
+
 export function InvoiceForm() {
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceDate, setInvoiceDate] = useState("");
@@ -50,6 +95,9 @@ export function InvoiceForm() {
   const [amountInput, setAmountInput] = useState("");
   const [amountIncludesBtw, setAmountIncludesBtw] = useState(false);
   const [btwRate, setBtwRate] = useState<BtwRate>(BTW_RATE_OPTIONS[0]);
+  const [sendByEmail, setSendByEmail] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [senderEmail, setSenderEmail] = useState<AllowedSender>(ALLOWED_SENDERS[0]);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
 
@@ -125,20 +173,51 @@ export function InvoiceForm() {
       totals,
     };
 
+    let blob: Blob;
     try {
-      const blob = await generateInvoicePdf(data);
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `invoice-${sanitizeFilename(invoiceNumber)}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      setStatus("success");
+      blob = await generateInvoicePdf(data);
     } catch (err) {
       setStatus("error");
       setError(err instanceof Error ? err.message : "Failed to generate PDF.");
+      return;
+    }
+
+    const filename = `invoice-${sanitizeFilename(invoiceNumber)}.pdf`;
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    if (!sendByEmail) {
+      setStatus("success");
+      return;
+    }
+
+    try {
+      const emailFormData = new FormData();
+      emailFormData.set("to", recipientEmail);
+      emailFormData.set("from", senderEmail);
+      emailFormData.set("content", JSON.stringify(buildInvoiceEmailContent(data)));
+      emailFormData.append("files", new File([blob], filename, { type: "application/pdf" }));
+
+      const res = await fetch("/api/panel/send-email", { method: "POST", body: emailFormData });
+      if (!res.ok) {
+        const resData = await res.json().catch(() => ({}));
+        throw new Error(resData.error || "Failed to send email.");
+      }
+      setStatus("success");
+    } catch (err) {
+      // The PDF already downloaded successfully at this point — say so,
+      // rather than reporting a blanket failure for a step that worked.
+      setStatus("error");
+      setError(
+        `PDF downloaded, but sending the email failed: ${err instanceof Error ? err.message : "unknown error"}`,
+      );
     }
   }
 
@@ -237,15 +316,72 @@ export function InvoiceForm() {
         </div>
       </div>
 
+      <div>
+        <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <input
+            type="checkbox"
+            checked={sendByEmail}
+            onChange={(event) => setSendByEmail(event.target.checked)}
+            className="h-4 w-4 rounded border-[#AAAAAA] accent-primary"
+          />
+          Also send by email
+        </label>
+        <div className="mt-3 grid gap-5 sm:grid-cols-2">
+          <div>
+            <label htmlFor="recipientEmail" className="text-xs font-medium text-muted">
+              Recipient
+            </label>
+            <input
+              id="recipientEmail"
+              type="email"
+              disabled={!sendByEmail}
+              required={sendByEmail}
+              value={recipientEmail}
+              onChange={(event) => setRecipientEmail(event.target.value)}
+              placeholder="name@example.com"
+              className={fieldClassName}
+            />
+          </div>
+          <div>
+            <label htmlFor="senderEmail" className="text-xs font-medium text-muted">
+              Sender
+            </label>
+            <select
+              id="senderEmail"
+              disabled={!sendByEmail}
+              value={senderEmail}
+              onChange={(event) => setSenderEmail(event.target.value as AllowedSender)}
+              className={fieldClassName}
+            >
+              {ALLOWED_SENDERS.map((sender) => (
+                <option key={sender} value={sender}>
+                  {sender}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
       <button
         type="submit"
         disabled={status === "submitting"}
         className="w-full rounded-full bg-blue-gradient border border-primary px-7 py-3.5 text-sm font-medium text-white transition duration-300 hover:shadow-md hover:shadow-primary/50 disabled:opacity-60"
       >
-        {status === "submitting" ? "Generating..." : "Download PDF"}
+        {status === "submitting"
+          ? sendByEmail
+            ? "Generating & sending..."
+            : "Generating..."
+          : sendByEmail
+            ? "Download & Send Invoice"
+            : "Download PDF"}
       </button>
 
-      {status === "success" && <p className="text-center text-sm font-medium text-emerald-600">PDF downloaded.</p>}
+      {status === "success" && (
+        <p className="text-center text-sm font-medium text-emerald-600">
+          {sendByEmail ? `PDF downloaded and sent to ${recipientEmail}.` : "PDF downloaded."}
+        </p>
+      )}
       {status === "error" && <p className="text-center text-sm font-medium text-red-600">{error}</p>}
     </form>
   );
