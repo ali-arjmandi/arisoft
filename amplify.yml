@@ -12,7 +12,7 @@ frontend:
         # separate runtime. Writing them into .env.production here is what
         # makes them available there too.
         # https://docs.aws.amazon.com/amplify/latest/userguide/ssr-environment-variables.html
-        - env | grep -e PANEL_ >> .env.production
+        - env | grep -Ee 'PANEL_|OPENAI_' >> .env.production
         - npm run build
   artifacts:
     baseDirectory: .next

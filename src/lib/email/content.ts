@@ -13,19 +13,18 @@ export type ContentFieldName = (typeof CONTENT_FIELDS)[number];
 export type EmailContent = Record<ContentFieldName, string>;
 
 export const content: EmailContent = {
-  subject: "Less busywork, more business.",
+  subject: "",
 
-  preheader: "A practical way to cut busywork out of your week.",
+  preheader: "",
 
   eyebrow: "AI automation for SMEs",
 
-  heading: "Less busywork, more business.",
+  heading: "",
 
-  body:
-    "We help Dutch SMEs automate the repetitive work eating into their week &mdash; support replies, data entry, follow-ups, reporting &mdash; by connecting the tools you already use. No generic chatbot: automation shaped around how your team actually works, live in weeks, not months.",
+  body: "",
 
   ctaLabel: "Get in touch",
-  
+
   ctaUrl: "https://arisoft.nl/#contact",
 
   unsubscribeUrl: "mailto:info@arisoft.nl?subject=Unsubscribe",

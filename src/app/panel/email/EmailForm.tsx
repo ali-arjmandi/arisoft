@@ -5,6 +5,8 @@ import Editor, { BtnBold, BtnItalic, BtnLink, Toolbar } from "react-simple-wysiw
 import { ALLOWED_SENDERS, type AllowedSender } from "@/lib/email/senders";
 import { type ContentFieldName, type EmailContent } from "@/lib/email/content";
 import { validateAttachments, MAX_ATTACHMENTS_TOTAL_BYTES } from "@/lib/email/attachments";
+import type { GeneratedEmailContent } from "@/lib/email/generateContent";
+import { GenerateWithAiModal } from "@/app/panel/email/GenerateWithAiModal";
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -40,10 +42,15 @@ export function EmailForm({ initialValues }: { initialValues: EmailContent }) {
   const [from, setFrom] = useState<AllowedSender>(ALLOWED_SENDERS[0]);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
+  const [aiModalOpen, setAiModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function updateField(name: ContentFieldName, value: string) {
     setContent((prev) => ({ ...prev, [name]: value }));
+  }
+
+  function handleGenerated(generated: GeneratedEmailContent) {
+    setContent((prev) => ({ ...prev, ...generated }));
   }
 
   function addFiles(selected: FileList | null) {
@@ -133,6 +140,14 @@ export function EmailForm({ initialValues }: { initialValues: EmailContent }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-border bg-surface p-8 shadow-sm">
+      <button
+        type="button"
+        onClick={() => setAiModalOpen(true)}
+        className="rounded-full border border-primary px-5 py-2.5 text-sm font-medium text-primary transition hover:bg-surface-muted"
+      >
+        Generate with AI
+      </button>
+
       {FIELDS.map(renderField)}
 
       <div>
@@ -315,6 +330,12 @@ export function EmailForm({ initialValues }: { initialValues: EmailContent }) {
         <p className="text-center text-sm font-medium text-emerald-600">Email sent to {to}.</p>
       )}
       {status === "error" && <p className="text-center text-sm font-medium text-red-600">{error}</p>}
+
+      <GenerateWithAiModal
+        open={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        onGenerated={handleGenerated}
+      />
     </form>
   );
 }
