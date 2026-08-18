@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { GeneratedEmailContent } from "@/lib/email/generateContent";
+import type { GeneratedEmailContent } from "@/lib/email/emailContentSchema";
 
 type Status = "idle" | "generating" | "error";
 

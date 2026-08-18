@@ -23,5 +23,11 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/panel/:path*", "/api/panel/send-email", "/api/panel/generate-email-content"],
+  matcher: [
+    "/panel/:path*",
+    "/api/panel/send-email",
+    "/api/panel/generate-email-content",
+    "/api/panel/analyze-company",
+    "/api/panel/generate-company-email",
+  ],
 };

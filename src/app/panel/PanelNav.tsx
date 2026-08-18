@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const LINKS = [
   { href: "/panel/email", label: "Email" },
   { href: "/panel/invoice", label: "Invoice" },
+  { href: "/panel/company-analyzer", label: "Company analyzer" },
 ];
 
 export function PanelNav() {

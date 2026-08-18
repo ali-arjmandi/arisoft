@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Editor, { BtnBold, BtnItalic, BtnLink, Toolbar } from "react-simple-wysiwyg";
 import { ALLOWED_SENDERS, type AllowedSender } from "@/lib/email/senders";
 import { type ContentFieldName, type EmailContent } from "@/lib/email/content";
 import { validateAttachments, MAX_ATTACHMENTS_TOTAL_BYTES } from "@/lib/email/attachments";
-import type { GeneratedEmailContent } from "@/lib/email/generateContent";
+import { pickValidGeneratedFields, type GeneratedEmailContent } from "@/lib/email/emailContentSchema";
 import { GenerateWithAiModal } from "@/app/panel/email/GenerateWithAiModal";
+import { EMAIL_PREFILL_STORAGE_KEY, type EmailHandoffMessage } from "@/lib/companyAnalyzer/emailHandoff";
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -33,7 +34,13 @@ const FIELDS: FieldConfig[] = [
 const fieldClassName =
   "mt-2 w-full rounded-lg border border-[#AAAAAA] px-4 py-3 text-sm placeholder-[#888] outline-none transition-colors focus:border-primary disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-muted";
 
-export function EmailForm({ initialValues }: { initialValues: EmailContent }) {
+export function EmailForm({
+  initialValues,
+  awaitingGeneration: initialAwaitingGeneration = false,
+}: {
+  initialValues: EmailContent;
+  awaitingGeneration?: boolean;
+}) {
   const [content, setContent] = useState<EmailContent>(initialValues);
   const [includeCta, setIncludeCta] = useState(true);
   const [includeUnsubscribe, setIncludeUnsubscribe] = useState(false);
@@ -43,6 +50,8 @@ export function EmailForm({ initialValues }: { initialValues: EmailContent }) {
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
   const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [awaitingGeneration, setAwaitingGeneration] = useState(initialAwaitingGeneration);
+  const [prefillError, setPrefillError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function updateField(name: ContentFieldName, value: string) {
@@ -52,6 +61,44 @@ export function EmailForm({ initialValues }: { initialValues: EmailContent }) {
   function handleGenerated(generated: GeneratedEmailContent) {
     setContent((prev) => ({ ...prev, ...generated }));
   }
+
+  useEffect(() => {
+    function applyMessage(raw: string | null) {
+      if (!raw) return;
+      window.localStorage.removeItem(EMAIL_PREFILL_STORAGE_KEY);
+      let message: EmailHandoffMessage;
+      try {
+        message = JSON.parse(raw) as EmailHandoffMessage;
+      } catch {
+        return;
+      }
+      if (message.status === "success") {
+        setContent((prev) => ({ ...prev, ...pickValidGeneratedFields(message.content) }));
+      } else {
+        setPrefillError(message.message);
+      }
+      setAwaitingGeneration(false);
+    }
+
+    applyMessage(window.localStorage.getItem(EMAIL_PREFILL_STORAGE_KEY));
+
+    function handleStorage(event: StorageEvent) {
+      if (event.key === EMAIL_PREFILL_STORAGE_KEY && event.newValue) {
+        applyMessage(event.newValue);
+      }
+    }
+
+    window.addEventListener("storage", handleStorage);
+
+    // Safety net: don't leave the tab stuck on the loading state forever if
+    // the handoff message never arrives for some reason.
+    const timeout = window.setTimeout(() => setAwaitingGeneration(false), 60000);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.clearTimeout(timeout);
+    };
+  }, []);
 
   function addFiles(selected: FileList | null) {
     if (!selected || selected.length === 0) return;
@@ -138,8 +185,22 @@ export function EmailForm({ initialValues }: { initialValues: EmailContent }) {
     );
   }
 
+  if (awaitingGeneration) {
+    return (
+      <div className="space-y-4 rounded-2xl border border-border bg-surface p-8 text-center shadow-sm">
+        <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <p className="text-sm font-medium text-foreground">Generating your email...</p>
+        <p className="text-sm text-muted">
+          This tab was opened from the Company Analyzer. It should only take a few seconds.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-border bg-surface p-8 shadow-sm">
+      {prefillError && <p className="text-center text-sm font-medium text-red-600">{prefillError}</p>}
+
       <button
         type="button"
         onClick={() => setAiModalOpen(true)}
