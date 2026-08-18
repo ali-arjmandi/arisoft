@@ -11,13 +11,48 @@ export function renderEmail(content: EmailContent): string {
     ? `<a href="${content.unsubscribeUrl}" style="color:#999999;text-decoration:underline;">Unsubscribe</a>&nbsp;&middot;&nbsp;`
     : "";
 
+  // The CTA button is optional (see the "Include CTA button" checkbox on
+  // /panel/email). When either half is missing, this omits both the button
+  // row and the "Or reply directly..." hint below it — that hint only makes
+  // sense as an alternative to clicking a button, so it can't stay without one.
+  const ctaBlock =
+    content.ctaLabel && content.ctaUrl
+      ? `<tr>
+            <td class="mobile-padding"
+              style="padding-top:28px;padding-right:40px;padding-bottom:8px;padding-left:40px;">
+              <!--[if mso]>
+              <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${content.ctaUrl}" style="height:48px;v-text-anchor:middle;width:220px;" arcsize="50%" strokecolor="#0140bf" fillcolor="#0140bf">
+              <w:anchorlock/>
+              <center style="color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;">${content.ctaLabel}</center>
+              </v:roundrect>
+              <![endif]-->
+              <!--[if !mso]><!-->
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" bgcolor="#0140bf" class="brand-gradient"
+                    style="border-radius:999px;background-color:#0140bf;background-image:linear-gradient(to right,#1e68fe,#0140bf);">
+                    <a href="${content.ctaUrl}"
+                      style="display:inline-block;padding-top:14px;padding-right:32px;padding-bottom:14px;padding-left:32px;font-family:'Poppins',Arial,Helvetica,sans-serif;font-size:15px;line-height:20px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:999px;">${content.ctaLabel}</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td class="mobile-padding" style="padding-top:12px;padding-right:40px;padding-bottom:0;padding-left:40px;">
+              <p
+                style="margin:0;mso-line-height-rule:exactly;font-family:'Poppins',Arial,Helvetica,sans-serif;font-size:13px;color:#666666;">
+                Or reply directly to this email, a real person will get back to you.</p>
+            </td>
+          </tr>`
+      : "";
+
   const tokenMap: Record<string, string> = {
     "{{PREHEADER}}": content.preheader,
     "{{EYEBROW}}": content.eyebrow,
     "{{HEADING}}": content.heading,
     "{{BODY}}": content.body,
-    "{{CTA_LABEL}}": content.ctaLabel,
-    "{{CTA_URL}}": content.ctaUrl,
+    "{{CTA_BLOCK}}": ctaBlock,
     "{{YEAR}}": year,
     "{{UNSUBSCRIBE_BLOCK}}": unsubscribeBlock,
   };

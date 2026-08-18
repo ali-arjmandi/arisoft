@@ -1,7 +1,7 @@
 import { ALLOWED_SENDERS, type AllowedSender } from "@/lib/email/senders";
 import { CONTENT_FIELDS, type ContentFieldName, type EmailContent } from "@/lib/email/content";
 
-const OPTIONAL_FIELDS: readonly ContentFieldName[] = ["unsubscribeUrl"];
+const OPTIONAL_FIELDS: readonly ContentFieldName[] = ["unsubscribeUrl", "ctaLabel", "ctaUrl"];
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

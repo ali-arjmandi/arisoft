@@ -15,7 +15,7 @@ function formatBytes(bytes: number): string {
 type Status = "idle" | "submitting" | "success" | "error";
 
 interface FieldConfig {
-  name: Exclude<ContentFieldName, "unsubscribeUrl" | "body">;
+  name: Exclude<ContentFieldName, "unsubscribeUrl" | "body" | "ctaLabel" | "ctaUrl">;
   label: string;
   type: "input" | "textarea";
   rows?: number;
@@ -28,16 +28,12 @@ const FIELDS: FieldConfig[] = [
   { name: "heading", label: "Heading", type: "textarea", rows: 2 },
 ];
 
-const AFTER_BODY_FIELDS: FieldConfig[] = [
-  { name: "ctaLabel", label: "CTA label", type: "input" },
-  { name: "ctaUrl", label: "CTA URL", type: "input" },
-];
-
 const fieldClassName =
   "mt-2 w-full rounded-lg border border-[#AAAAAA] px-4 py-3 text-sm placeholder-[#888] outline-none transition-colors focus:border-primary disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-muted";
 
 export function EmailForm({ initialValues }: { initialValues: EmailContent }) {
   const [content, setContent] = useState<EmailContent>(initialValues);
+  const [includeCta, setIncludeCta] = useState(true);
   const [includeUnsubscribe, setIncludeUnsubscribe] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [to, setTo] = useState("");
@@ -75,6 +71,8 @@ export function EmailForm({ initialValues }: { initialValues: EmailContent }) {
 
     const payloadContent: EmailContent = {
       ...content,
+      ctaLabel: includeCta ? content.ctaLabel : "",
+      ctaUrl: includeCta ? content.ctaUrl : "",
       unsubscribeUrl: includeUnsubscribe ? content.unsubscribeUrl : "",
     };
 
@@ -163,7 +161,47 @@ export function EmailForm({ initialValues }: { initialValues: EmailContent }) {
         </div>
       </div>
 
-      {AFTER_BODY_FIELDS.map(renderField)}
+      <div>
+        <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <input
+            type="checkbox"
+            checked={includeCta}
+            onChange={(event) => setIncludeCta(event.target.checked)}
+            className="h-4 w-4 rounded border-[#AAAAAA] accent-primary"
+          />
+          Include CTA button
+        </label>
+        <div className="mt-3 space-y-3">
+          <div>
+            <label htmlFor="ctaLabel" className="text-xs font-medium text-muted">
+              CTA label
+            </label>
+            <input
+              id="ctaLabel"
+              type="text"
+              disabled={!includeCta}
+              required={includeCta}
+              value={content.ctaLabel}
+              onChange={(event) => updateField("ctaLabel", event.target.value)}
+              className={fieldClassName}
+            />
+          </div>
+          <div>
+            <label htmlFor="ctaUrl" className="text-xs font-medium text-muted">
+              CTA URL
+            </label>
+            <input
+              id="ctaUrl"
+              type="text"
+              disabled={!includeCta}
+              required={includeCta}
+              value={content.ctaUrl}
+              onChange={(event) => updateField("ctaUrl", event.target.value)}
+              className={fieldClassName}
+            />
+          </div>
+        </div>
+      </div>
 
       <div>
         <label htmlFor="attachments" className="text-sm font-medium text-foreground">
