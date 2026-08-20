@@ -12,7 +12,7 @@ export function renderEmail(content: EmailContent): string {
     : "";
 
   // The CTA button is optional (see the "Include CTA button" checkbox on
-  // /panel/email). When either half is missing, this omits both the button
+  // /dashboard/email). When either half is missing, this omits both the button
   // row and the "Or reply directly..." hint below it — that hint only makes
   // sense as an alternative to clicking a button, so it can't stay without one.
   const ctaBlock =

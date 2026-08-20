@@ -1,5 +1,14 @@
 import type { CompanyAnalysis } from "@/lib/companyAnalyzer/analyzeCompany";
 
+export function slugify(value: string): string {
+  const slug = value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "company";
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -44,9 +53,9 @@ export function buildCompanyReportHtml(result: CompanyAnalysis, siteUrl: string)
   // GET, not POST: the session cookie is SameSite=Lax, so it's only sent on
   // a cross-site *GET* navigation (which is what happens when this file is
   // opened from disk and this form is submitted) — a cross-site POST would
-  // never carry it, and the panel would always see an unauthenticated
+  // never carry it, and the dashboard would always see an unauthenticated
   // request no matter how correct the target URL is.
-  const formAction = `${siteUrl.replace(/\/$/, "")}/panel/company-analyzer`;
+  const formAction = `${siteUrl.replace(/\/$/, "")}/dashboard/company-analyzer`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -118,7 +127,7 @@ export function buildCompanyReportHtml(result: CompanyAnalysis, siteUrl: string)
     ${renderField("Fit score reason", result.fitScoreReason)}
 
     <div class="cta">
-      <p>Opens this analysis in the Arisoft panel, ready to generate the outreach email.</p>
+      <p>Opens this analysis in the Arisoft dashboard, ready to generate the outreach email.</p>
       <form method="GET" action="${escapeHtml(formAction)}" target="_blank">
         <input type="hidden" name="data" value="${escapeHtml(analysisJson)}" />
         <button type="submit">Generate email</button>

@@ -1,10 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE_NAME, verifySessionCookie } from "@/lib/panel/session";
+import { SESSION_COOKIE_NAME, verifySessionCookie } from "@/lib/dashboard/session";
+
+// Login/logout must stay reachable without a valid session cookie — you
+// can't require a session to grant one, and logout must be able to clear a
+// stale/invalid cookie.
+const PUBLIC_API_PATHS = new Set(["/api/dashboard/login", "/api/dashboard/logout"]);
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname === "/panel") {
+  if (pathname === "/dashboard/login" || PUBLIC_API_PATHS.has(pathname)) {
     return NextResponse.next();
   }
 
@@ -19,15 +24,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Not authenticated." }, { status: 401 });
   }
 
-  return NextResponse.redirect(new URL("/panel", request.url));
+  return NextResponse.redirect(new URL("/dashboard/login", request.url));
 }
 
 export const config = {
-  matcher: [
-    "/panel/:path*",
-    "/api/panel/send-email",
-    "/api/panel/generate-email-content",
-    "/api/panel/analyze-company",
-    "/api/panel/generate-company-email",
-  ],
+  matcher: ["/dashboard/:path*", "/api/dashboard/:path*"],
 };

@@ -3,8 +3,8 @@ import type { AllowedSender } from "./senders";
 import type { EmailAttachment } from "./render";
 
 const APP_PASSWORD_ENV_BY_SENDER: Record<AllowedSender, string> = {
-  "info@arisoft.nl": "PANEL_SMTP_INFO_APP_PASSWORD",
-  "a.arjmandi@arisoft.nl": "PANEL_SMTP_ARJMANDI_APP_PASSWORD",
+  "info@arisoft.nl": "DASHBOARD_SMTP_INFO_APP_PASSWORD",
+  "a.arjmandi@arisoft.nl": "DASHBOARD_SMTP_ARJMANDI_APP_PASSWORD",
 };
 
 export interface SendEmailInput {

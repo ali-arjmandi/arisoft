@@ -2,7 +2,7 @@ import type { InvoiceDocumentData } from "./types";
 
 /**
  * Dynamically imports react-pdf and the document template — keeps the
- * (fairly large) react-pdf bundle out of the initial /panel/invoice page
+ * (fairly large) react-pdf bundle out of the initial /dashboard/invoice page
  * load, since this is only ever called from a click handler anyway.
  */
 export async function generateInvoicePdf(data: InvoiceDocumentData): Promise<Blob> {

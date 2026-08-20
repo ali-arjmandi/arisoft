@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Dark mode is class-based and intentionally scoped to a subtree, not the
+   document — DashboardShell.tsx toggles `.dark` on an inner wrapper div,
+   never on <html> or <body>, so the public marketing site (which never
+   renders inside a `.dark` ancestor) can never be affected by it. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #ffffff;
   --surface: #ffffff;
@@ -10,6 +16,33 @@
   --border: #dddddd;
   --primary: #0140bf;
   --primary-light: #1e68fe;
+
+  /* Dashboard-only tokens (only referenced under src/app/dashboard/**). */
+  --dashboard-bg: #f5f7fb;
+  --success: #01b574;
+  --success-tint: #e6faf5;
+  --danger: #ee5d50;
+  --danger-tint: #feefee;
+  --warning: #ffb547;
+  --warning-tint: #fff6da;
+  --info-tint: #eaf1ff;
+}
+
+/* Dark-mode values, only ever active where a `.dark` ancestor exists (the
+   dashboard shell's wrapper div) — see the @custom-variant comment above. */
+.dark {
+  --surface: #111c44;
+  --surface-muted: #0b1437;
+  --foreground: #ffffff;
+  --body: #cbd5e1;
+  --muted: #a3aed0;
+  --border: #2d3a66;
+  --primary: #3d8bff;
+  --dashboard-bg: #0b1437;
+  --success-tint: #0b3b32;
+  --danger-tint: #3b1e1c;
+  --warning-tint: #3d2f10;
+  --info-tint: #172b52;
 }
 
 @theme inline {
@@ -22,6 +55,14 @@
   --color-border: var(--border);
   --color-primary: var(--primary);
   --color-primary-light: var(--primary-light);
+  --color-dashboard-bg: var(--dashboard-bg);
+  --color-success: var(--success);
+  --color-success-tint: var(--success-tint);
+  --color-danger: var(--danger);
+  --color-danger-tint: var(--danger-tint);
+  --color-warning: var(--warning);
+  --color-warning-tint: var(--warning-tint);
+  --color-info-tint: var(--info-tint);
   --font-sans: var(--font-poppins);
 }
 

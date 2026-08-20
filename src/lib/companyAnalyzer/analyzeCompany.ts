@@ -52,9 +52,9 @@ export interface AnalyzeCompanyInput {
   kvkNumber: string | null;
 }
 
-const WEBSITE_CONFIDENCE_VALUES: WebsiteConfidence[] = ["high", "medium", "low", "not_found"];
+export const WEBSITE_CONFIDENCE_VALUES: WebsiteConfidence[] = ["high", "medium", "low", "not_found"];
 
-const ARISOFT_SERVICES: ArisoftService[] = [
+export const ARISOFT_SERVICES: ArisoftService[] = [
   "Customer support automation",
   "Internal workflow automation",
   "Lead intake and qualification",
