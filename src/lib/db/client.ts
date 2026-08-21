@@ -14,7 +14,19 @@ function createPool(): Pool {
   // Small per-instance ceiling: Amplify's Node.js SSR runtime may run
   // multiple concurrent instances, each opening its own pool, so keep this
   // low to avoid exhausting the database's total connection limit.
-  return new Pool({ connectionString, max: 5 });
+  //
+  // ssl: local Postgres (dev) has no SSL enabled, so forcing it would break
+  // local dev. Neon/Supabase (prod) need it, and rejectUnauthorized: false
+  // because their cert chain isn't trusted by Node's default CA bundle in
+  // Amplify's runtime, which recent pg versions reject outright (sslmode=require
+  // now behaves like verify-full instead of its classic encrypt-only meaning).
+  // The connection is still encrypted; this only skips CA-chain verification.
+  const isLocalDb = /^(localhost|127\.0\.0\.1)$/.test(new URL(connectionString).hostname);
+  return new Pool({
+    connectionString,
+    max: 5,
+    ssl: isLocalDb ? undefined : { rejectUnauthorized: false },
+  });
 }
 
 // Pool creation is deferred to first call (not module load) so importing

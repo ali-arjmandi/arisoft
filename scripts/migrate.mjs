@@ -13,7 +13,12 @@ if (!connectionString) {
   process.exit(1);
 }
 
-const pool = new Pool({ connectionString });
+// ssl config — see src/lib/db/client.ts for why this is conditional.
+const isLocalDb = /^(localhost|127\.0\.0\.1)$/.test(new URL(connectionString).hostname);
+const pool = new Pool({
+  connectionString,
+  ssl: isLocalDb ? undefined : { rejectUnauthorized: false },
+});
 
 try {
   await migrate(drizzle(pool), { migrationsFolder: "./drizzle/migrations" });
