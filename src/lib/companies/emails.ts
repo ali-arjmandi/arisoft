@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { companies, contactPersons, emails } from "@/lib/db/schema";
 import type { AllowedSender } from "@/lib/email/senders";
@@ -111,6 +111,8 @@ export async function listQueuedEmails(): Promise<QueuedEmailListItem[]> {
       status: emails.status,
       createdAt: emails.createdAt,
       sentAt: emails.sentAt,
+      sendAttemptedAt: emails.sendAttemptedAt,
+      sendError: emails.sendError,
       companyName: companies.companyName,
     })
     .from(emails)
@@ -210,4 +212,99 @@ export async function deleteEmail(id: string): Promise<boolean> {
     .where(and(eq(emails.id, id), inArray(emails.status, ["draft", "queued"])))
     .returning({ id: emails.id });
   return deleted.length > 0;
+}
+
+// Read-only peek at the row the paced auto-publish tick would claim next,
+// without claiming it — used to check that sender's pacing/caps *before*
+// claiming, so a row that's simply not due yet under the pace isn't
+// mistaken for a claimed-but-failed attempt (see claimNextQueuedEmailForSend
+// below). Same eligibility rule as the claim query: still queued, and
+// either never auto-attempted or last attempted before the retry cooldown.
+export async function peekNextQueuedEmailForSend(cooldownMinutes: number): Promise<EmailRecord | null> {
+  const db = getDb();
+  const cooldownThreshold = new Date(Date.now() - cooldownMinutes * 60_000);
+  const [row] = await db
+    .select()
+    .from(emails)
+    .where(
+      and(
+        eq(emails.status, "queued"),
+        or(isNull(emails.sendAttemptedAt), lt(emails.sendAttemptedAt, cooldownThreshold)),
+      ),
+    )
+    .orderBy(asc(emails.createdAt))
+    .limit(1);
+  return row ?? null;
+}
+
+// Atomically claims the next eligible row for the auto-publish tick: FOR
+// UPDATE SKIP LOCKED so an overlapping tick (a manual cron ping racing the
+// scheduled one) skips a row another tick already claimed, same pattern as
+// claimNextBatch() in companyQueue/queue.ts. Claiming just stamps
+// sendAttemptedAt = now() rather than flipping status (emails has no
+// "sending" status) — the actual SMTP send happens after this returns, kept
+// out of the transaction so a slow network call never holds the row lock.
+export async function claimNextQueuedEmailForSend(cooldownMinutes: number): Promise<EmailRecord | null> {
+  const db = getDb();
+  const cooldownThreshold = new Date(Date.now() - cooldownMinutes * 60_000);
+
+  return db.transaction(async (tx) => {
+    const [eligible] = await tx
+      .select({ id: emails.id })
+      .from(emails)
+      .where(
+        and(
+          eq(emails.status, "queued"),
+          or(isNull(emails.sendAttemptedAt), lt(emails.sendAttemptedAt, cooldownThreshold)),
+        ),
+      )
+      .orderBy(asc(emails.createdAt))
+      .limit(1)
+      .for("update", { skipLocked: true });
+
+    if (!eligible) return null;
+
+    const [claimed] = await tx
+      .update(emails)
+      .set({ sendAttemptedAt: new Date() })
+      .where(eq(emails.id, eligible.id))
+      .returning();
+    return claimed ?? null;
+  });
+}
+
+// Records why a claimed row's auto-publish attempt failed. status stays
+// "queued" — sendAttemptedAt (set by the claim above) is what gates the
+// next auto-retry, while the row remains sendable immediately via the
+// manual "Send" button regardless of that cooldown.
+export async function markEmailSendFailed(id: string, error: string): Promise<void> {
+  const db = getDb();
+  await db.update(emails).set({ sendError: error }).where(eq(emails.id, id));
+}
+
+export interface EmailSendStats {
+  lastSentAt: Date | null;
+  sentLastHour: number;
+  sentLastDay: number;
+}
+
+// Rate-limit inputs for the auto-publish tick, computed straight from the
+// emails table (no separate counters to keep in sync). Scoped per sender —
+// ALLOWED_SENDERS[0] gets essentially all auto-generated volume today, but
+// the cap must not silently apply across both mailboxes combined.
+export async function getEmailSendStats(from: AllowedSender): Promise<EmailSendStats> {
+  const db = getDb();
+  const hourAgo = new Date(Date.now() - 60 * 60_000);
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60_000);
+
+  const [row] = await db
+    .select({
+      lastSentAt: sql<Date | null>`max(${emails.sentAt})`,
+      sentLastHour: sql<number>`count(*) filter (where ${emails.sentAt} >= ${hourAgo})::int`,
+      sentLastDay: sql<number>`count(*) filter (where ${emails.sentAt} >= ${dayAgo})::int`,
+    })
+    .from(emails)
+    .where(and(eq(emails.status, "sent"), eq(emails.fromSender, from), gte(emails.sentAt, dayAgo)));
+
+  return row ?? { lastSentAt: null, sentLastHour: 0, sentLastDay: 0 };
 }

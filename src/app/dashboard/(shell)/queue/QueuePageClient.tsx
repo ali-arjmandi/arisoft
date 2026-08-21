@@ -32,21 +32,19 @@ export function QueuePageClient({
   const [generateEmailsMode, setGenerateEmailsMode] = useState(initialGenerateEmailsMode);
   const [generateEmailsSaving, setGenerateEmailsSaving] = useState(false);
 
-  // Polls continuously (not just while running) so the list — and the
-  // running/stopped state itself — stays live even when this tab isn't the
-  // one driving processing (another tab or admin started/stopped it, or
-  // added items). A single in-flight poll at a time: the next one is only
-  // scheduled once the previous resolves, not on a fixed interval, since a
-  // tick can legitimately take up to ~a minute when it does claim work
-  // (the analyze step), which would otherwise overlap a naive setInterval.
-  // A failed fetch is treated as a soft "try again next cycle."
+  // Read-only display poll — processing itself is driven by the scheduled
+  // /api/cron/tick, not by this tab, so this just keeps the list and
+  // running/stopped state live (another tab, an admin, or the cron job
+  // itself may be the one making progress). A single in-flight poll at a
+  // time: the next one is only scheduled once the previous resolves. A
+  // failed fetch is treated as a soft "try again next cycle."
   useEffect(() => {
     let cancelled = false;
     let timeoutId: number | null = null;
 
-    async function tick() {
+    async function poll() {
       try {
-        const res = await fetch("/api/dashboard/queue/tick", { method: "POST" });
+        const res = await fetch("/api/dashboard/queue/status");
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.ok) {
           setItems(data.items);
@@ -56,12 +54,12 @@ export function QueuePageClient({
         // swallowed — see comment above
       } finally {
         if (!cancelled) {
-          timeoutId = window.setTimeout(tick, POLL_INTERVAL_MS);
+          timeoutId = window.setTimeout(poll, POLL_INTERVAL_MS);
         }
       }
     }
 
-    tick();
+    poll();
 
     return () => {
       cancelled = true;
@@ -122,7 +120,7 @@ export function QueuePageClient({
           <p className="text-sm font-medium text-foreground">{isRunning ? "Running" : "Stopped"}</p>
           <p className="text-xs text-muted">
             {isRunning
-              ? `Processing up to ${batchSize} at a time while this page stays open.`
+              ? `Processing up to ${batchSize} at a time in the background — safe to close this tab.`
               : "Processing is paused. Click Resume to continue working through the queue."}
           </p>
         </div>

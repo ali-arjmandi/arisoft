@@ -27,17 +27,27 @@ function DetailField({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function EmailQueueTable({ initialItems }: { initialItems: QueuedEmailListItem[] }) {
+export function EmailQueueTable({
+  initialItems,
+  initialIsRunning,
+}: {
+  initialItems: QueuedEmailListItem[];
+  initialIsRunning: boolean;
+}) {
   const [items, setItems] = useState(initialItems);
+  const [isRunning, setIsRunning] = useState(initialIsRunning);
+  const [toggling, setToggling] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const { page, setPage, totalPages, pageItems } = usePagination(items, 10);
 
-  // Keeps the list live — new rows queued by the company queue (possibly in
-  // another tab) or removed elsewhere show up without a manual reload. A
-  // single in-flight poll at a time: the next one is only scheduled once
-  // the previous resolves, not on a fixed interval.
+  // Keeps the list, and the publish running/stopped state, live — new rows
+  // queued by the company queue, sends made by the background /api/cron/tick
+  // job, or another tab starting/stopping publishing all show up without a
+  // manual reload. This is a read-only display poll; it never triggers a
+  // send itself. A single in-flight poll at a time: the next one is only
+  // scheduled once the previous resolves, not on a fixed interval.
   useEffect(() => {
     let cancelled = false;
     let timeoutId: number | null = null;
@@ -48,6 +58,7 @@ export function EmailQueueTable({ initialItems }: { initialItems: QueuedEmailLis
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.ok) {
           setItems(data.items);
+          setIsRunning(data.isRunning);
         }
       } catch {
         // soft fail — try again next cycle
@@ -65,6 +76,21 @@ export function EmailQueueTable({ initialItems }: { initialItems: QueuedEmailLis
       if (timeoutId !== null) window.clearTimeout(timeoutId);
     };
   }, []);
+
+  async function handleTogglePublishing() {
+    setToggling(true);
+    try {
+      const res = await fetch(`/api/dashboard/email-queue/publish/${isRunning ? "stop" : "start"}`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        setIsRunning(data.isRunning);
+      }
+    } finally {
+      setToggling(false);
+    }
+  }
 
   async function handleSend(item: QueuedEmailListItem) {
     if (!window.confirm(`Send this email to ${item.contactEmailSnapshot}?`)) return;
@@ -102,16 +128,45 @@ export function EmailQueueTable({ initialItems }: { initialItems: QueuedEmailLis
     }
   }
 
+  const publishControls = (
+    <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-surface p-6 shadow-sm">
+      <div>
+        <p className="text-sm font-medium text-foreground">Publishing {isRunning ? "running" : "stopped"}</p>
+        <p className="text-xs text-muted">
+          {isRunning
+            ? "Sending one email at a time, spaced out to protect sender reputation — safe to close this tab."
+            : "Click Resume to gradually send every queued email, spaced out rather than all at once."}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={handleTogglePublishing}
+        disabled={toggling}
+        className={
+          isRunning
+            ? "rounded-full border border-danger px-6 py-2.5 text-sm font-medium text-danger transition hover:bg-danger-tint disabled:opacity-60"
+            : "rounded-full bg-blue-gradient border border-primary px-6 py-2.5 text-sm font-medium text-white transition disabled:opacity-60"
+        }
+      >
+        {toggling ? "..." : isRunning ? "Stop" : "Publish"}
+      </button>
+    </div>
+  );
+
   if (items.length === 0) {
     return (
-      <p className="rounded-2xl border border-border bg-surface p-8 text-center text-sm text-muted">
-        No emails queued right now.
-      </p>
+      <div className="space-y-3">
+        {publishControls}
+        <p className="rounded-2xl border border-border bg-surface p-8 text-center text-sm text-muted">
+          No emails queued right now.
+        </p>
+      </div>
     );
   }
 
   return (
     <div className="space-y-3">
+      {publishControls}
       <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
         <table className="w-full text-left text-sm">
           <thead>
@@ -184,6 +239,14 @@ export function EmailQueueTable({ initialItems }: { initialItems: QueuedEmailLis
                           <DetailField label="Subject" value={item.content.subject} />
                           {item.content.preheader && <DetailField label="Preheader" value={item.content.preheader} />}
                           {item.content.heading && <DetailField label="Heading" value={item.content.heading} />}
+                          {item.sendError && (
+                            <div>
+                              <dt className="text-xs font-medium uppercase tracking-wide text-danger">
+                                Last publish attempt failed{item.sendAttemptedAt ? ` (${formatDate(item.sendAttemptedAt)})` : ""}
+                              </dt>
+                              <dd className="mt-1 text-sm text-danger">{item.sendError}</dd>
+                            </div>
+                          )}
                           <div>
                             <dt className="text-xs font-medium uppercase tracking-wide text-muted">Body</dt>
                             {/* Read-only preview of content generated by our own AI flow or composed by

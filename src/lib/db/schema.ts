@@ -60,6 +60,18 @@ export const emails = pgTable(
     status: text("status").$type<EmailStatus>().notNull().default("draft"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     sentAt: timestamp("sent_at", { withTimezone: true }),
+    // Set by the paced auto-publish tick (src/lib/email/publishTick.ts) each
+    // time it claims this row to attempt a send, whether that attempt then
+    // succeeds or fails. Doubles as both the claim marker (a second
+    // concurrent tick skips a row claimed moments ago) and the auto-retry
+    // cooldown gate (a row that failed isn't retried again until the
+    // cooldown elapses) — status stays "queued" either way, so a human can
+    // still hit the manual "Send" button immediately regardless of cooldown.
+    sendAttemptedAt: timestamp("send_attempted_at", { withTimezone: true }),
+    // Error from the most recent auto-publish attempt, if it failed. Cleared
+    // implicitly by becoming irrelevant once status flips to "sent"; not
+    // read anywhere once that happens.
+    sendError: text("send_error"),
   },
   (table) => [
     index("emails_company_id_idx").on(table.companyId),
@@ -100,6 +112,18 @@ export const queueState = pgTable("queue_state", {
   id: smallint("id").primaryKey().default(1),
   isRunning: boolean("is_running").notNull().default(false),
   generateEmailsMode: text("generate_emails_mode").$type<GenerateEmailsMode>().notNull().default("queued"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Singleton row (id always 1), same shape and lazy-create pattern as
+// queueState above, controlling whether the paced auto-publish tick
+// (src/lib/email/publishTick.ts) is allowed to claim and send queued
+// emails. A separate table from queueState because it's a different job
+// (sending already-generated emails vs. analyzing companies) with its own
+// independent Start/Stop control on the Email queue page.
+export const emailSendState = pgTable("email_send_state", {
+  id: smallint("id").primaryKey().default(1),
+  isRunning: boolean("is_running").notNull().default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
