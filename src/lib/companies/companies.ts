@@ -4,6 +4,40 @@ import { companies, contactPersons, emails } from "@/lib/db/schema";
 import type { CompanyAnalysis } from "@/lib/companyAnalyzer/analyzeCompany";
 import type { CompanyListItem, CompanyRecord, CompanyWithDetails } from "./types";
 
+// Best-effort: a company save must always succeed even if auto-adding
+// contacts fails for some reason, so failures here are logged, not thrown.
+// A contact with a found email is deduped by email; one without (the AI
+// found a name but no address) is deduped by name instead, since there's
+// no other stable identifier for it — so re-saving/regenerating an
+// analysis never creates duplicates either way.
+async function autoCreateDecisionMakerContacts(companyId: string, analysis: CompanyAnalysis): Promise<void> {
+  try {
+    const db = getDb();
+    const existing = await db
+      .select({ name: contactPersons.name, email: contactPersons.email })
+      .from(contactPersons)
+      .where(eq(contactPersons.companyId, companyId));
+    const knownEmails = new Set(existing.filter((row) => row.email).map((row) => row.email!.toLowerCase()));
+    const knownNames = new Set(existing.map((row) => row.name.toLowerCase()));
+
+    const toCreate: (typeof contactPersons.$inferInsert)[] = [];
+    for (const contact of analysis.decisionMakerContacts ?? []) {
+      const email = contact.email?.toLowerCase() ?? null;
+      const name = contact.name.toLowerCase();
+      if (email ? knownEmails.has(email) : knownNames.has(name)) continue;
+      if (email) knownEmails.add(email);
+      else knownNames.add(name);
+      toCreate.push({ companyId, name: contact.name, role: contact.role, email: contact.email, phone: contact.phone });
+    }
+
+    if (toCreate.length > 0) {
+      await db.insert(contactPersons).values(toCreate);
+    }
+  } catch (error) {
+    console.error("Failed to auto-create decision maker contacts:", error);
+  }
+}
+
 export async function listCompanies(): Promise<CompanyListItem[]> {
   const db = getDb();
   const rows = await db
@@ -69,6 +103,7 @@ export async function saveCompanyAnalysis(
         })
         .where(eq(companies.id, existing.id))
         .returning();
+      await autoCreateDecisionMakerContacts(updated.id, analysis);
       return { company: updated, created: false };
     }
   }
@@ -77,6 +112,7 @@ export async function saveCompanyAnalysis(
     .insert(companies)
     .values({ companyName: analysis.companyName, kvkNumber: analysis.kvkNumber, analysis })
     .returning();
+  await autoCreateDecisionMakerContacts(created.id, analysis);
   return { company: created, created: true };
 }
 
@@ -92,7 +128,9 @@ export async function updateCompany(id: string, analysis: CompanyAnalysis): Prom
     })
     .where(eq(companies.id, id))
     .returning();
-  return updated ?? null;
+  if (!updated) return null;
+  await autoCreateDecisionMakerContacts(updated.id, analysis);
+  return updated;
 }
 
 export async function deleteCompany(id: string): Promise<boolean> {

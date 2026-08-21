@@ -338,6 +338,20 @@ export function CompanyAnalysisEditor({
         />
       </div>
 
+      <div className="rounded-lg border border-border p-4">
+        <p className="text-sm font-medium text-foreground">Research brief (raw notes from the research agent)</p>
+        {analysis.researchBrief ? (
+          <pre className="mt-3 max-h-96 overflow-y-auto whitespace-pre-wrap text-xs text-body">
+            {analysis.researchBrief}
+          </pre>
+        ) : (
+          <p className="mt-2 text-sm text-muted">
+            No research brief recorded for this analysis (it predates that feature, or hasn&apos;t been
+            regenerated since).
+          </p>
+        )}
+      </div>
+
       <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-6">
         <button
           type="button"

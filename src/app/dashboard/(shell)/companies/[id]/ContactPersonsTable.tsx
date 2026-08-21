@@ -33,17 +33,23 @@ export function ContactPersonsTable({
   const [form, setForm] = useState<ContactFormState>(EMPTY_FORM);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [addingEmail, setAddingEmail] = useState<string | null>(null);
+  const [addingKey, setAddingKey] = useState<string | null>(null);
   const { page, setPage, totalPages, pageItems } = usePagination(contacts, 10);
 
-  const existingEmails = new Set(contacts.map((contact) => contact.email.toLowerCase()));
-  const addableSuggestions = suggestedContacts.filter(
-    (suggested) => suggested.email && !existingEmails.has(suggested.email.toLowerCase()),
+  // A suggestion with an email is deduped by email; one without (found by
+  // name only) is deduped by name instead, matching the auto-add logic on
+  // the server.
+  const existingEmails = new Set(contacts.filter((c) => c.email).map((c) => c.email!.toLowerCase()));
+  const existingNames = new Set(contacts.map((c) => c.name.toLowerCase()));
+  const addableSuggestions = suggestedContacts.filter((suggested) =>
+    suggested.email
+      ? !existingEmails.has(suggested.email.toLowerCase())
+      : !existingNames.has(suggested.name.toLowerCase()),
   );
 
   async function handleAddSuggested(suggested: DecisionMakerContact) {
-    if (!suggested.email) return;
-    setAddingEmail(suggested.email);
+    const key = suggested.email ?? suggested.name;
+    setAddingKey(key);
     setError("");
     try {
       const res = await fetch(`/api/dashboard/companies/${companyId}/contacts`, {
@@ -65,13 +71,13 @@ export function ContactPersonsTable({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add contact.");
     } finally {
-      setAddingEmail(null);
+      setAddingKey(null);
     }
   }
 
   function startEdit(contact: ContactPersonRecord) {
     setEditingId(contact.id);
-    setForm({ name: contact.name, role: contact.role ?? "", email: contact.email, phone: contact.phone ?? "" });
+    setForm({ name: contact.name, role: contact.role ?? "", email: contact.email ?? "", phone: contact.phone ?? "" });
     setError("");
   }
 
@@ -93,7 +99,7 @@ export function ContactPersonsTable({
     const body = {
       name: form.name.trim(),
       role: form.role.trim() || null,
-      email: form.email.trim(),
+      email: form.email.trim() || null,
       phone: form.phone.trim() || null,
     };
 
@@ -143,6 +149,7 @@ export function ContactPersonsTable({
   }
 
   function handleSendEmail(contact: ContactPersonRecord) {
+    if (!contact.email) return;
     const message: EmailHandoffMessage = {
       status: "prefill",
       to: contact.email,
@@ -171,29 +178,32 @@ export function ContactPersonsTable({
       {addableSuggestions.length > 0 && (
         <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-muted">Suggested from analysis</p>
-          {addableSuggestions.map((suggested) => (
-            <div
-              key={suggested.email}
-              className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-2 first:border-t-0 first:pt-0"
-            >
-              <div>
-                <p className="text-sm font-medium text-foreground">{suggested.name}</p>
-                <p className="text-xs text-muted">
-                  {suggested.role ? `${suggested.role} · ` : ""}
-                  {suggested.email}
-                  {suggested.phone ? ` · ${suggested.phone}` : ""}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleAddSuggested(suggested)}
-                disabled={addingEmail === suggested.email}
-                className="shrink-0 rounded-full border border-primary px-4 py-1.5 text-xs font-medium text-primary transition hover:bg-surface disabled:opacity-60"
+          {addableSuggestions.map((suggested) => {
+            const key = suggested.email ?? suggested.name;
+            return (
+              <div
+                key={key}
+                className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-2 first:border-t-0 first:pt-0"
               >
-                {addingEmail === suggested.email ? "Adding..." : "Add"}
-              </button>
-            </div>
-          ))}
+                <div>
+                  <p className="text-sm font-medium text-foreground">{suggested.name}</p>
+                  <p className="text-xs text-muted">
+                    {suggested.role ? `${suggested.role} · ` : ""}
+                    {suggested.email ?? "No email found"}
+                    {suggested.phone ? ` · ${suggested.phone}` : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleAddSuggested(suggested)}
+                  disabled={addingKey === key}
+                  className="shrink-0 rounded-full border border-primary px-4 py-1.5 text-xs font-medium text-primary transition hover:bg-surface disabled:opacity-60"
+                >
+                  {addingKey === key ? "Adding..." : "Add"}
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -211,14 +221,20 @@ export function ContactPersonsTable({
                 <p className="text-sm font-medium text-foreground">{contact.name}</p>
                 <p className="text-xs text-muted">
                   {contact.role ? `${contact.role} · ` : ""}
-                  {contact.email}
+                  {contact.email ?? "No email found"}
                   {contact.phone ? ` · ${contact.phone}` : ""}
                 </p>
               </div>
               <div className="flex shrink-0 gap-3 text-xs font-medium">
-                <button type="button" onClick={() => handleSendEmail(contact)} className="text-primary hover:underline">
-                  Send email
-                </button>
+                {contact.email && (
+                  <button
+                    type="button"
+                    onClick={() => handleSendEmail(contact)}
+                    className="text-primary hover:underline"
+                  >
+                    Send email
+                  </button>
+                )}
                 <button type="button" onClick={() => startEdit(contact)} className="text-primary hover:underline">
                   Edit
                 </button>
@@ -273,7 +289,7 @@ function ContactForm({
       />
       <input
         type="email"
-        placeholder="Email"
+        placeholder="Email (optional)"
         value={form.email}
         onChange={(event) => setForm({ ...form, email: event.target.value })}
         className={inputClassName}

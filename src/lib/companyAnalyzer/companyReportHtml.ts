@@ -71,7 +71,11 @@ export function buildCompanyReportHtml(result: CompanyAnalysis, siteUrl: string)
           .join("")
       : '<p class="muted">No decision maker contacts identified.</p>';
 
-  const analysisJson = JSON.stringify(result);
+  // researchBrief is the Research Agent's raw notes, kept only for human
+  // debugging on the company detail page - excluded here to keep the
+  // downloaded file smaller and keep it out of the "Generate email" call
+  // this form triggers.
+  const analysisJson = JSON.stringify({ ...result, researchBrief: undefined });
   // GET, not POST: the session cookie is SameSite=Lax, so it's only sent on
   // a cross-site *GET* navigation (which is what happens when this file is
   // opened from disk and this form is submitted) — a cross-site POST would

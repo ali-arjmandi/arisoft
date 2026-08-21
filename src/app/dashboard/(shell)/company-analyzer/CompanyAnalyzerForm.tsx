@@ -93,7 +93,8 @@ export function CompanyAnalyzerForm({ initialResult = null }: { initialResult?: 
 
         {status === "analyzing" && (
           <p className="text-center text-sm text-muted">
-            This can take up to a minute, it&apos;s researching the company on the web.
+            This can take a minute or two, it&apos;s researching the company on the web, then analyzing the
+            findings.
           </p>
         )}
         {status === "error" && <p className="text-center text-sm font-medium text-red-600">{error}</p>}

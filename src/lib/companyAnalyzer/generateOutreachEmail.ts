@@ -52,7 +52,11 @@ export async function generateOutreachEmail(analysis: CompanyAnalysis): Promise<
     },
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: JSON.stringify(analysis) },
+      // researchBrief is the Research Agent's raw notes, kept only for
+      // human debugging on the company detail page - the distilled fields
+      // below already cover what this prompt needs, so it's excluded here
+      // to keep this call's input lean.
+      { role: "user", content: JSON.stringify({ ...analysis, researchBrief: undefined }) },
     ],
   });
 

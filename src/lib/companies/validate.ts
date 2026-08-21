@@ -193,6 +193,7 @@ export function parseCompanyAnalysisInput(value: unknown): ParseResult<CompanyAn
     fitScoreReason: readRequiredString(record, "fitScoreReason", errors),
     outreachAngle: readRequiredString(record, "outreachAngle", errors),
     researchNotes: readNullableString(record, "researchNotes", errors),
+    researchBrief: readNullableString(record, "researchBrief", errors),
   };
 
   if (errors.length > 0) return { ok: false, errors };
@@ -210,9 +211,16 @@ export function parseContactPersonInput(value: unknown): ParseResult<ContactPers
   const role = readNullableString(record, "role", errors);
   const phone = readNullableString(record, "phone", errors);
 
+  // Email is optional (a decision maker may be identified by name only,
+  // e.g. from AI research that couldn't find their address) — but if a
+  // value is given, it must be a real email.
   const emailRaw = record.email;
-  const email = typeof emailRaw === "string" ? emailRaw.trim() : "";
-  if (!isValidEmail(email)) errors.push("A valid contact email is required.");
+  const emailInput = typeof emailRaw === "string" ? emailRaw.trim() : "";
+  let email: string | null = null;
+  if (emailInput) {
+    if (!isValidEmail(emailInput)) errors.push("Contact email must be a valid email address.");
+    email = emailInput;
+  }
 
   if (errors.length > 0) return { ok: false, errors };
   return { ok: true, data: { name, role, email, phone } };

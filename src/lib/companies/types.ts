@@ -23,6 +23,6 @@ export type QueuedEmailListItem = EmailRecord & { companyName: string };
 export interface ContactPersonInput {
   name: string;
   role: string | null;
-  email: string;
+  email: string | null;
   phone: string | null;
 }

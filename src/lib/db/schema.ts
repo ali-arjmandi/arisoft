@@ -25,7 +25,7 @@ export const contactPersons = pgTable(
       .references(() => companies.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     role: text("role"),
-    email: text("email").notNull(),
+    email: text("email"),
     phone: text("phone"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

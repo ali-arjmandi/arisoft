@@ -170,7 +170,7 @@ export function CompanyAnalysisResult({ result }: { result: CompanyAnalysis }) {
           <p className="mt-2 text-sm text-muted">No decision maker contacts identified.</p>
         )}
         <p className="mt-2 text-xs text-muted">
-          Save this company first, then add any of these on its page under Contact persons.
+          Anyone found with an email is added to Contact persons automatically when you save this company.
         </p>
       </div>
 
@@ -223,6 +223,17 @@ export function CompanyAnalysisResult({ result }: { result: CompanyAnalysis }) {
         <Field label="Outreach angle" value={result.outreachAngle} />
         <Field label="Research notes" value={result.researchNotes} />
       </dl>
+
+      <div className="rounded-lg border border-border p-4">
+        <p className="text-sm font-medium text-foreground">Research brief (raw notes from the research agent)</p>
+        {result.researchBrief ? (
+          <pre className="mt-3 max-h-96 overflow-y-auto whitespace-pre-wrap text-xs text-body">
+            {result.researchBrief}
+          </pre>
+        ) : (
+          <p className="mt-2 text-sm text-muted">No research brief was returned for this analysis.</p>
+        )}
+      </div>
 
       <div className="rounded-lg border border-primary bg-surface-muted p-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
