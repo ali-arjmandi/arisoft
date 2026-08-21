@@ -1,10 +1,12 @@
 import { defineConfig } from "drizzle-kit";
 
-// Migrations are never applied automatically (not wired into amplify.yml).
-// Generate with `npm run db:generate`, review the emitted SQL under
-// drizzle/migrations, then apply deliberately with `npm run db:migrate`
-// against whichever DASHBOARD_DATABASE_URL is active — a developer must point
-// it at production explicitly when ready to ship a schema change.
+// Generate with `npm run db:generate` and review the emitted SQL under
+// drizzle/migrations before committing. Applying against prod happens once
+// per deploy via `db:migrate:ci` in amplify.yml (using the console-configured
+// DASHBOARD_DATABASE_URL) — not at app/Lambda startup, since SSR runs as
+// multiple concurrent Lambda instances that would race to apply the same
+// migration. For local/manual runs against another DB, use `npm run
+// db:migrate`, which reads DASHBOARD_DATABASE_URL from .env.local instead.
 export default defineConfig({
   schema: "./src/lib/db/schema.ts",
   out: "./drizzle/migrations",
