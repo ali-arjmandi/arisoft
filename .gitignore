@@ -37,6 +37,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local tooling (machine-specific)
+/graphify-out
+/.claude/settings.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
