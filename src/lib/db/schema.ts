@@ -2,7 +2,8 @@ import { pgTable, uuid, text, timestamp, jsonb, index, boolean, smallint } from 
 import type { CompanyAnalysis } from "@/lib/companyAnalyzer/analyzeCompany";
 import type { EmailContent } from "@/lib/email/content";
 import type { AllowedSender } from "@/lib/email/senders";
-import type { QueueItemStatus } from "@/lib/companyQueue/status";
+import type { GenerateEmailsMode, QueueItemStatus } from "@/lib/companyQueue/status";
+import type { EmailStatus } from "@/lib/email/status";
 
 export const companies = pgTable("companies", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -33,13 +34,15 @@ export const contactPersons = pgTable(
   (table) => [index("contact_persons_company_id_idx").on(table.companyId)],
 );
 
-// Log of both sent and queued-but-not-yet-sent emails. company_id cascades
-// (deleting a company deletes its email history), but contact_person_id is
-// set null on contact delete/edit — the snapshot columns are what keep the
-// row meaningful and accurate after that, since a row must never change
-// retroactively once written. sent_at is null while the row is queued (see
-// src/lib/companyQueue) and set once the email actually goes out; created_at
-// is the reliable ordering key regardless of send status.
+// Log of draft, queued, and sent emails. company_id cascades (deleting a
+// company deletes its email history), but contact_person_id is set null on
+// contact delete/edit — the snapshot columns are what keep the row
+// meaningful and accurate after that, since a row must never change
+// retroactively once written. status is the source of truth for where a
+// row is in its lifecycle (draft -> queued -> sent, see src/lib/email/status
+// and src/lib/companyQueue); sent_at is just the actual send timestamp, set
+// only when status becomes "sent" — it is not used to infer status anymore.
+// created_at is the reliable ordering key regardless of status.
 export const emails = pgTable(
   "emails",
   {
@@ -52,6 +55,7 @@ export const emails = pgTable(
     contactEmailSnapshot: text("contact_email_snapshot").notNull(),
     fromSender: text("from_sender").$type<AllowedSender>().notNull(),
     content: jsonb("content").$type<EmailContent>().notNull(),
+    status: text("status").$type<EmailStatus>().notNull().default("draft"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     sentAt: timestamp("sent_at", { withTimezone: true }),
   },
@@ -84,15 +88,15 @@ export const companyQueueItems = pgTable(
 );
 
 // Singleton row (id always 1) controlling whether the queue processor is
-// allowed to claim and process work, and whether processing should also
-// generate + queue an outreach email for each company. Read/written via
-// getQueueState() / setQueueRunning() / setGenerateEmails() in
-// src/lib/companyQueue/state.ts, which lazily create this row if missing
-// rather than relying on a seed migration (this repo has no seed-data
-// system).
+// allowed to claim and process work, and whether/how processing should also
+// generate an outreach email for each company (off, as a draft, or straight
+// to queued). Read/written via getQueueState() / setQueueRunning() /
+// setGenerateEmailsMode() in src/lib/companyQueue/state.ts, which lazily
+// create this row if missing rather than relying on a seed migration (this
+// repo has no seed-data system).
 export const queueState = pgTable("queue_state", {
   id: smallint("id").primaryKey().default(1),
   isRunning: boolean("is_running").notNull().default(false),
-  generateEmails: boolean("generate_emails").notNull().default(true),
+  generateEmailsMode: text("generate_emails_mode").$type<GenerateEmailsMode>().notNull().default("queued"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

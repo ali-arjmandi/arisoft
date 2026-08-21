@@ -1,12 +1,13 @@
 import { analyzeCompany, type CompanyAnalysis } from "@/lib/companyAnalyzer/analyzeCompany";
 import { generateOutreachEmail } from "@/lib/companyAnalyzer/generateOutreachEmail";
 import { getCompanyById, saveCompanyAnalysis } from "@/lib/companies/companies";
-import { queueGeneratedEmail } from "@/lib/companies/emails";
+import { createGeneratedEmail } from "@/lib/companies/emails";
 import type { CompanyRecord } from "@/lib/companies/types";
 import { content as defaultContent } from "@/lib/email/content";
 import { ALLOWED_SENDERS } from "@/lib/email/senders";
 import { claimNextBatch, markQueueItemDone, markQueueItemFailed } from "./queue";
 import { getQueueState } from "./state";
+import type { GenerateEmailsMode } from "./status";
 import type { CompanyQueueItemRecord } from "./types";
 
 function errorMessage(error: unknown): string {
@@ -20,7 +21,7 @@ async function analyzeAndSave(item: CompanyQueueItemRecord): Promise<{ analysis:
 }
 
 export interface ProcessQueueItemOptions {
-  generateEmails: boolean;
+  generateEmailsMode: GenerateEmailsMode;
 }
 
 // Never throws — every branch ends in a status write, so a single item's
@@ -48,18 +49,19 @@ export async function processQueueItem(
     return;
   }
 
-  if (!options.generateEmails || !analysis.contact.generalEmail) {
+  if (options.generateEmailsMode === "off" || !analysis.contact.generalEmail) {
     await markQueueItemDone(item.id, company.id);
     return;
   }
 
   try {
     const generated = await generateOutreachEmail(analysis);
-    await queueGeneratedEmail({
+    await createGeneratedEmail({
       companyId: company.id,
       to: analysis.contact.generalEmail,
       from: ALLOWED_SENDERS[0],
       content: { ...defaultContent, ...generated },
+      status: options.generateEmailsMode === "draft" ? "draft" : "queued",
     });
   } catch (error) {
     await markQueueItemFailed(item.id, `Company saved, but outreach email failed: ${errorMessage(error)}`, company.id);
@@ -75,7 +77,7 @@ export async function runQueueTick(): Promise<{ isRunning: boolean }> {
 
   const batchSize = Number(process.env.QUEUE_BATCH_SIZE) || 3;
   const claimed = await claimNextBatch(batchSize);
-  const options: ProcessQueueItemOptions = { generateEmails: state.generateEmails };
+  const options: ProcessQueueItemOptions = { generateEmailsMode: state.generateEmailsMode };
   await Promise.allSettled(claimed.map((item) => processQueueItem(item, options)));
   return { isRunning: true };
 }

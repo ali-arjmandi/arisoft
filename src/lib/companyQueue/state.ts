@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { queueState } from "@/lib/db/schema";
+import type { GenerateEmailsMode } from "./status";
 import type { QueueStateRecord } from "./types";
 
 const SINGLETON_ID = 1;
@@ -38,14 +39,14 @@ export async function setQueueRunning(isRunning: boolean): Promise<QueueStateRec
   return row;
 }
 
-export async function setGenerateEmails(generateEmails: boolean): Promise<QueueStateRecord> {
+export async function setGenerateEmailsMode(generateEmailsMode: GenerateEmailsMode): Promise<QueueStateRecord> {
   const db = getDb();
   const [row] = await db
     .insert(queueState)
-    .values({ id: SINGLETON_ID, generateEmails })
+    .values({ id: SINGLETON_ID, generateEmailsMode })
     .onConflictDoUpdate({
       target: queueState.id,
-      set: { generateEmails, updatedAt: sql`now()` },
+      set: { generateEmailsMode, updatedAt: sql`now()` },
     })
     .returning();
   return row;

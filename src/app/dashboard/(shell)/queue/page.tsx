@@ -22,7 +22,7 @@ export default async function DashboardQueuePage() {
       <QueuePageClient
         initialItems={items}
         initialIsRunning={state.isRunning}
-        initialGenerateEmails={state.generateEmails}
+        initialGenerateEmailsMode={state.generateEmailsMode}
         batchSize={batchSize}
       />
     </div>

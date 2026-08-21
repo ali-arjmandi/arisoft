@@ -2,27 +2,34 @@
 
 import { useEffect, useState } from "react";
 import type { CompanyQueueItemRecord } from "@/lib/companyQueue/types";
+import type { GenerateEmailsMode } from "@/lib/companyQueue/status";
 import { AddQueueItemForm } from "./AddQueueItemForm";
 import { QueueCsvUpload } from "./QueueCsvUpload";
 import { QueueItemsTable } from "./QueueItemsTable";
 
 const POLL_INTERVAL_MS = 10_000;
 
+const GENERATE_EMAILS_MODE_HELP: Record<GenerateEmailsMode, string> = {
+  off: "Companies are still analyzed and saved, but no email is generated for them.",
+  draft: "Companies are analyzed, saved, and get a draft email — review it before queuing.",
+  queued: "Companies are analyzed, saved, and get an email queued, ready to send.",
+};
+
 export function QueuePageClient({
   initialItems,
   initialIsRunning,
-  initialGenerateEmails,
+  initialGenerateEmailsMode,
   batchSize,
 }: {
   initialItems: CompanyQueueItemRecord[];
   initialIsRunning: boolean;
-  initialGenerateEmails: boolean;
+  initialGenerateEmailsMode: GenerateEmailsMode;
   batchSize: number;
 }) {
   const [items, setItems] = useState(initialItems);
   const [isRunning, setIsRunning] = useState(initialIsRunning);
   const [toggling, setToggling] = useState(false);
-  const [generateEmails, setGenerateEmails] = useState(initialGenerateEmails);
+  const [generateEmailsMode, setGenerateEmailsMode] = useState(initialGenerateEmailsMode);
   const [generateEmailsSaving, setGenerateEmailsSaving] = useState(false);
 
   // Polls continuously (not just while running) so the list — and the
@@ -75,17 +82,17 @@ export function QueuePageClient({
     }
   }
 
-  async function handleGenerateEmailsChange(enabled: boolean) {
+  async function handleGenerateEmailsModeChange(mode: GenerateEmailsMode) {
     setGenerateEmailsSaving(true);
     try {
       const res = await fetch("/api/dashboard/queue/generate-emails", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled }),
+        body: JSON.stringify({ mode }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.ok) {
-        setGenerateEmails(data.generateEmails);
+        setGenerateEmailsMode(data.generateEmailsMode);
       }
     } finally {
       setGenerateEmailsSaving(false);
@@ -121,21 +128,21 @@ export function QueuePageClient({
         </div>
         <div className="flex items-center gap-4">
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-foreground">
-              <input
-                type="checkbox"
-                checked={generateEmails}
-                onChange={(event) => handleGenerateEmailsChange(event.target.checked)}
-                disabled={generateEmailsSaving}
-                className="h-4 w-4 rounded border-[#AAAAAA] accent-primary"
-              />
-              Generate outreach emails
+            <label htmlFor="generate-emails-mode" className="text-sm font-medium text-foreground">
+              Outreach emails
             </label>
-            <p className="mt-1 text-xs text-muted">
-              {generateEmails
-                ? "Companies are analyzed, saved, and queued an email."
-                : "Companies are still analyzed and saved, but no email is queued for them."}
-            </p>
+            <select
+              id="generate-emails-mode"
+              value={generateEmailsMode}
+              onChange={(event) => handleGenerateEmailsModeChange(event.target.value as GenerateEmailsMode)}
+              disabled={generateEmailsSaving}
+              className="mt-1 block w-full rounded-lg border border-[#AAAAAA] px-3 py-2 text-sm outline-none transition-colors focus:border-primary disabled:opacity-60"
+            >
+              <option value="off">Don&apos;t generate emails</option>
+              <option value="draft">Generate as draft</option>
+              <option value="queued">Generate and queue</option>
+            </select>
+            <p className="mt-1 text-xs text-muted">{GENERATE_EMAILS_MODE_HELP[generateEmailsMode]}</p>
           </div>
           <button
             type="button"

@@ -1,0 +1,1 @@
+ALTER TABLE "queue_state" DROP COLUMN "generate_emails";

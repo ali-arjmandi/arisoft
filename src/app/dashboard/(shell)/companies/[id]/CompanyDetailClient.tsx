@@ -23,7 +23,7 @@ export function CompanyDetailClient({
         initialContacts={initialContacts}
         suggestedContacts={initialCompany.analysis.decisionMakerContacts ?? []}
       />
-      <EmailsTable emails={initialEmails} />
+      <EmailsTable companyId={companyId} initialEmails={initialEmails} />
       <CompanyAnalysisEditor companyId={companyId} initialAnalysis={initialCompany.analysis} />
     </div>
   );

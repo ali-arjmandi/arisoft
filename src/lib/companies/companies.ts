@@ -46,9 +46,9 @@ export async function listCompanies(): Promise<CompanyListItem[]> {
       companyName: companies.companyName,
       kvkNumber: companies.kvkNumber,
       createdAt: companies.createdAt,
-      // Only counts rows that have actually been sent — queued (sent_at
-      // null) rows created by the company queue don't count as "sent" yet.
-      emailCount: sql<number>`count(${emails.id}) filter (where ${emails.sentAt} is not null)`,
+      // Only counts rows that have actually been sent — draft/queued rows
+      // don't count as "sent" yet.
+      emailCount: sql<number>`count(${emails.id}) filter (where ${emails.status} = 'sent')`,
     })
     .from(companies)
     .leftJoin(emails, eq(emails.companyId, companies.id))
