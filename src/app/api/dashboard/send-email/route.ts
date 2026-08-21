@@ -4,7 +4,7 @@ import { validateAttachments } from "@/lib/email/attachments";
 import { SESSION_COOKIE_NAME, verifySessionCookie } from "@/lib/dashboard/session";
 import { parseSendRequest } from "@/lib/dashboard/validate";
 import { sendEmail } from "@/lib/email/sendEmail";
-import { recordEmailSent } from "@/lib/companies/emailsSent";
+import { recordEmailSent } from "@/lib/companies/emails";
 
 export async function POST(request: NextRequest) {
   const cookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       // The email already sent successfully; a logging failure must never
       // surface as a user-facing send failure.
-      console.error("dashboard send-email: failed to log emails_sent row:", error);
+      console.error("dashboard send-email: failed to log emails row:", error);
     }
   }
 

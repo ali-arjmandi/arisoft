@@ -53,11 +53,32 @@ export function MailIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function MailQueueIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="5" width="14" height="12" rx="2" />
+      <path d="m4 7 6.5 5 6.5-5" />
+      <circle cx="18.5" cy="16.5" r="4" />
+      <path d="M18.5 14.75V16.5l1.25 1" />
+    </Icon>
+  );
+}
+
 export function InvoiceIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>
       <path d="M7 3h10a1 1 0 0 1 1 1v16l-3-2-2 2-2-2-2 2-3-2V4a1 1 0 0 1 1-1Z" />
       <path d="M9 8h6M9 12h6M9 16h3" />
+    </Icon>
+  );
+}
+
+export function QueueIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="4" width="18" height="4" rx="1" />
+      <rect x="3" y="10" width="18" height="4" rx="1" />
+      <rect x="3" y="16" width="18" height="4" rx="1" />
     </Icon>
   );
 }

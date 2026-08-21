@@ -1,5 +1,5 @@
 import type { ComponentType, SVGProps } from "react";
-import { AnalyzerIcon, BuildingIcon, HomeIcon, InvoiceIcon, MailIcon } from "./icons";
+import { AnalyzerIcon, BuildingIcon, HomeIcon, InvoiceIcon, MailIcon, MailQueueIcon, QueueIcon } from "./icons";
 
 export interface DashboardNavItem {
   href: string;
@@ -22,10 +22,22 @@ export const DASHBOARD_NAV_ITEMS: DashboardNavItem[] = [
     icon: BuildingIcon,
   },
   {
+    href: "/dashboard/queue",
+    label: "Company queue",
+    subtitle: "Bulk-add companies and auto-process them into analyses and outreach emails.",
+    icon: QueueIcon,
+  },
+  {
     href: "/dashboard/company-analyzer",
     label: "Company analyzer",
     subtitle: "Research a company and find automation opportunities.",
     icon: AnalyzerIcon,
+  },
+  {
+    href: "/dashboard/email-queue",
+    label: "Email queue",
+    subtitle: "Emails generated but not yet sent — review, send, or discard them.",
+    icon: MailQueueIcon,
   },
   {
     href: "/dashboard/email",

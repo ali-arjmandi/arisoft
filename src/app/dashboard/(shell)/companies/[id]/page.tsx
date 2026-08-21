@@ -23,7 +23,7 @@ export default async function DashboardCompanyDetailPage({ params }: { params: P
         companyId={id}
         initialCompany={details.company}
         initialContacts={details.contacts}
-        initialEmailsSent={details.emailsSent}
+        initialEmails={details.emails}
       />
     </div>
   );

@@ -8,6 +8,27 @@
       "when": 1787241109498,
       "tag": "0000_nasty_genesis",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787274731541,
+      "tag": "0001_breezy_krista_starr",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787274787129,
+      "tag": "0002_robust_toro",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787275617958,
+      "tag": "0003_thin_strong_guy",
+      "breakpoints": true
     }
   ]
 }

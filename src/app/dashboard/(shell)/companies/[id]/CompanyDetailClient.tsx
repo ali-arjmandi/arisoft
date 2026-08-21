@@ -1,25 +1,25 @@
 "use client";
 
-import type { CompanyRecord, ContactPersonRecord, EmailSentRecord } from "@/lib/companies/types";
+import type { CompanyRecord, ContactPersonRecord, EmailRecord } from "@/lib/companies/types";
 import { CompanyAnalysisEditor } from "./CompanyAnalysisEditor";
 import { ContactPersonsTable } from "./ContactPersonsTable";
-import { EmailsSentTable } from "./EmailsSentTable";
+import { EmailsTable } from "./EmailsTable";
 
 export function CompanyDetailClient({
   companyId,
   initialCompany,
   initialContacts,
-  initialEmailsSent,
+  initialEmails,
 }: {
   companyId: string;
   initialCompany: CompanyRecord;
   initialContacts: ContactPersonRecord[];
-  initialEmailsSent: EmailSentRecord[];
+  initialEmails: EmailRecord[];
 }) {
   return (
     <div className="space-y-8">
       <ContactPersonsTable companyId={companyId} initialContacts={initialContacts} />
-      <EmailsSentTable emails={initialEmailsSent} />
+      <EmailsTable emails={initialEmails} />
       <CompanyAnalysisEditor companyId={companyId} initialAnalysis={initialCompany.analysis} />
     </div>
   );

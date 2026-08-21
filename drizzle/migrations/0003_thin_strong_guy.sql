@@ -1,0 +1,1 @@
+ALTER TABLE "queue_state" ADD COLUMN "generate_emails" boolean DEFAULT true NOT NULL;

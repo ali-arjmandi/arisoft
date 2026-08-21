@@ -1,8 +1,8 @@
-import type { companies, contactPersons, emailsSent } from "@/lib/db/schema";
+import type { companies, contactPersons, emails } from "@/lib/db/schema";
 
 export type CompanyRecord = typeof companies.$inferSelect;
 export type ContactPersonRecord = typeof contactPersons.$inferSelect;
-export type EmailSentRecord = typeof emailsSent.$inferSelect;
+export type EmailRecord = typeof emails.$inferSelect;
 
 export interface CompanyListItem {
   id: string;
@@ -15,8 +15,10 @@ export interface CompanyListItem {
 export interface CompanyWithDetails {
   company: CompanyRecord;
   contacts: ContactPersonRecord[];
-  emailsSent: EmailSentRecord[];
+  emails: EmailRecord[];
 }
+
+export type QueuedEmailListItem = EmailRecord & { companyName: string };
 
 export interface ContactPersonInput {
   name: string;

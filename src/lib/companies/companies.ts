@@ -1,6 +1,6 @@
-import { count, desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
-import { companies, contactPersons, emailsSent } from "@/lib/db/schema";
+import { companies, contactPersons, emails } from "@/lib/db/schema";
 import type { CompanyAnalysis } from "@/lib/companyAnalyzer/analyzeCompany";
 import type { CompanyListItem, CompanyRecord, CompanyWithDetails } from "./types";
 
@@ -12,31 +12,41 @@ export async function listCompanies(): Promise<CompanyListItem[]> {
       companyName: companies.companyName,
       kvkNumber: companies.kvkNumber,
       createdAt: companies.createdAt,
-      emailCount: count(emailsSent.id),
+      // Only counts rows that have actually been sent — queued (sent_at
+      // null) rows created by the company queue don't count as "sent" yet.
+      emailCount: sql<number>`count(${emails.id}) filter (where ${emails.sentAt} is not null)`,
     })
     .from(companies)
-    .leftJoin(emailsSent, eq(emailsSent.companyId, companies.id))
+    .leftJoin(emails, eq(emails.companyId, companies.id))
     .groupBy(companies.id)
     .orderBy(desc(companies.createdAt));
 
   return rows.map((row) => ({ ...row, emailCount: Number(row.emailCount) }));
 }
 
-export async function getCompanyWithDetails(id: string): Promise<CompanyWithDetails | null> {
+export async function getCompanyById(id: string): Promise<CompanyRecord | null> {
   const db = getDb();
   const [company] = await db.select().from(companies).where(eq(companies.id, id)).limit(1);
+  return company ?? null;
+}
+
+export async function getCompanyWithDetails(id: string): Promise<CompanyWithDetails | null> {
+  const db = getDb();
+  const company = await getCompanyById(id);
   if (!company) return null;
 
-  const [contacts, sentEmails] = await Promise.all([
+  const [contacts, companyEmails] = await Promise.all([
     db
       .select()
       .from(contactPersons)
       .where(eq(contactPersons.companyId, id))
       .orderBy(desc(contactPersons.createdAt)),
-    db.select().from(emailsSent).where(eq(emailsSent.companyId, id)).orderBy(desc(emailsSent.sentAt)),
+    // Ordered by created_at, not sent_at — sent_at is null for queued
+    // (not-yet-sent) rows so it's no longer a reliable ordering key.
+    db.select().from(emails).where(eq(emails.companyId, id)).orderBy(desc(emails.createdAt)),
   ]);
 
-  return { company, contacts, emailsSent: sentEmails };
+  return { company, contacts, emails: companyEmails };
 }
 
 // Saves a freshly-run analysis. If a company with the same KVK number
