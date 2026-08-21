@@ -95,21 +95,38 @@ export async function processQueueItem(
     // there's more than one recipient (see generateOutreachEmail).
     const generated = await generateOutreachEmail(analysis, company.id, { genericGreeting: recipients.length > 1 });
     const status = options.generateEmailsMode === "draft" ? "draft" : "queued";
-    await Promise.all(
-      recipients.map((recipient) =>
+    // Off by default — generated drafts/queued emails shouldn't carry an
+    // unsubscribe link until someone deliberately enables it while editing.
+    const content = { ...defaultContent, ...generated, unsubscribeUrl: "" };
+    const inserts = recipients.map((recipient) =>
+      createGeneratedEmail({
+        companyId: company.id,
+        contactPersonId: recipient.contactPersonId,
+        to: recipient.to,
+        from: ALLOWED_SENDERS[0],
+        content,
+        status,
+      }),
+    );
+    // "queued" mode sends straight to every recipient without leaving an
+    // editable copy behind, so the company detail page's "Email templates"
+    // section stays empty for these companies. Mirror the manual
+    // "Generate email" flow (generate-email/route.ts) by also stashing the
+    // primary recipient's copy as a draft template — recipients[0] is the
+    // general email when found, else the first contact (see buildRecipients).
+    if (status === "queued") {
+      inserts.push(
         createGeneratedEmail({
           companyId: company.id,
-          contactPersonId: recipient.contactPersonId,
-          to: recipient.to,
+          contactPersonId: recipients[0].contactPersonId,
+          to: recipients[0].to,
           from: ALLOWED_SENDERS[0],
-          // Off by default — generated drafts/queued emails shouldn't
-          // carry an unsubscribe link until someone deliberately enables
-          // it while editing.
-          content: { ...defaultContent, ...generated, unsubscribeUrl: "" },
-          status,
+          content,
+          status: "draft",
         }),
-      ),
-    );
+      );
+    }
+    await Promise.all(inserts);
   } catch (error) {
     await markQueueItemFailed(item.id, `Company saved, but outreach email failed: ${errorMessage(error)}`, company.id);
     return;
@@ -130,7 +147,12 @@ export async function runQueueTick(): Promise<{ isRunning: boolean }> {
   if (!(await tryAcquireTickLock())) return { isRunning: true };
 
   try {
-    const batchSize = Number(process.env.QUEUE_BATCH_SIZE) || 3;
+    // Default of 1 (not the old 3) matters more now than it used to: a
+    // scheduler-triggered tick call blocks until the whole batch finishes
+    // (each item's analysis can take up to ~1 minute), and that latency is
+    // no longer absorbed by a patient client-side poll loop, just a caller
+    // waiting on the HTTP response.
+    const batchSize = Number(process.env.QUEUE_BATCH_SIZE) || 1;
     const claimed = await claimNextBatch(batchSize);
     const options: ProcessQueueItemOptions = { generateEmailsMode: state.generateEmailsMode };
 

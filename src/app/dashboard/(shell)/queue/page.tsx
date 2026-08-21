@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardQueuePage() {
   const [items, state] = await Promise.all([listQueueItems(), getQueueState()]);
-  const batchSize = Number(process.env.QUEUE_BATCH_SIZE) || 3;
+  const batchSize = Number(process.env.QUEUE_BATCH_SIZE) || 1;
 
   return (
     <div className="space-y-8">
