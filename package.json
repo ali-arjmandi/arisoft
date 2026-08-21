@@ -9,7 +9,7 @@
     "lint": "eslint",
     "db:generate": "dotenv -e .env.local -- drizzle-kit generate",
     "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate",
-    "db:migrate:ci": "drizzle-kit migrate"
+    "db:migrate:ci": "node scripts/migrate.mjs"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.6.1",
