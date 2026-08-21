@@ -37,13 +37,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   }
 
   try {
-    const generated = await generateOutreachEmail(details.company.analysis);
+    const generated = await generateOutreachEmail(details.company.analysis, id);
     const item = await createGeneratedEmail({
       companyId: id,
       contactPersonId: fallbackContact?.id,
       to,
       from: ALLOWED_SENDERS[0],
-      content: { ...defaultContent, ...generated },
+      // Off by default — generated drafts shouldn't carry an unsubscribe
+      // link until someone deliberately enables it while editing.
+      content: { ...defaultContent, ...generated, unsubscribeUrl: "" },
       status: "draft",
     });
     return NextResponse.json({ ok: true, item }, { status: 201 });

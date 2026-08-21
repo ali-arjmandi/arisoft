@@ -2,7 +2,7 @@ import { desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { companies, contactPersons, emails } from "@/lib/db/schema";
 import type { CompanyAnalysis } from "@/lib/companyAnalyzer/analyzeCompany";
-import type { CompanyListItem, CompanyRecord, CompanyWithDetails } from "./types";
+import type { CompanyListItem, CompanyRecord, CompanyWithDetails, ContactPersonRecord } from "./types";
 
 // Best-effort: a company save must always succeed even if auto-adding
 // contacts fails for some reason, so failures here are logged, not thrown.
@@ -67,17 +67,22 @@ export async function getCompanyById(id: string): Promise<CompanyRecord | null> 
   return company ?? null;
 }
 
+export async function getContactPersonsByCompanyId(companyId: string): Promise<ContactPersonRecord[]> {
+  const db = getDb();
+  return db
+    .select()
+    .from(contactPersons)
+    .where(eq(contactPersons.companyId, companyId))
+    .orderBy(desc(contactPersons.createdAt));
+}
+
 export async function getCompanyWithDetails(id: string): Promise<CompanyWithDetails | null> {
   const db = getDb();
   const company = await getCompanyById(id);
   if (!company) return null;
 
   const [contacts, companyEmails] = await Promise.all([
-    db
-      .select()
-      .from(contactPersons)
-      .where(eq(contactPersons.companyId, id))
-      .orderBy(desc(contactPersons.createdAt)),
+    getContactPersonsByCompanyId(id),
     // Ordered by created_at, not sent_at — sent_at is null for queued
     // (not-yet-sent) rows so it's no longer a reliable ordering key.
     db.select().from(emails).where(eq(emails.companyId, id)).orderBy(desc(emails.createdAt)),

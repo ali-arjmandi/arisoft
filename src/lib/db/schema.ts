@@ -4,6 +4,7 @@ import type { EmailContent } from "@/lib/email/content";
 import type { AllowedSender } from "@/lib/email/senders";
 import type { GenerateEmailsMode, QueueItemStatus } from "@/lib/companyQueue/status";
 import type { EmailStatus } from "@/lib/email/status";
+import type { ReportEventType } from "@/lib/reports/reportEventType";
 
 export const companies = pgTable("companies", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -101,3 +102,39 @@ export const queueState = pgTable("queue_state", {
   generateEmailsMode: text("generate_emails_mode").$type<GenerateEmailsMode>().notNull().default("queued"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// The unguessable bearer token for a company's public shareable report link
+// (src/app/report/[token]). Deliberately a separate random token rather than
+// the company's own id — decouples the internal record id (visible
+// throughout the dashboard) from the external bearer credential, and leaves
+// room to rotate/revoke a link later without touching the company row.
+// Lazily created on first "Copy report link" click, one per company.
+export const companyReportLinks = pgTable("company_report_links", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  companyId: uuid("company_id")
+    .notNull()
+    .references(() => companies.id, { onDelete: "cascade" })
+    .unique(),
+  token: text("token").notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Append-only log of public report engagement (page opens, PDF downloads),
+// recorded via the public /api/report/[token]/track route. Aggregated per
+// company for the "Report" card on the company detail page — see
+// getReportEngagement in src/lib/reports/reportEvents.ts.
+export const reportEvents = pgTable(
+  "report_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    type: text("type").$type<ReportEventType>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("report_events_company_id_idx").on(table.companyId),
+    index("report_events_company_id_type_idx").on(table.companyId, table.type),
+  ],
+);

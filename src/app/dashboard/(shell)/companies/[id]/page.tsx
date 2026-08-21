@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getCompanyWithDetails } from "@/lib/companies/companies";
+import { getReportEngagement } from "@/lib/reports/reportEvents";
 import { CompanyDetailClient } from "./CompanyDetailClient";
 
 // Reads live data from the database on every request — must not be
@@ -12,6 +13,7 @@ export default async function DashboardCompanyDetailPage({ params }: { params: P
   if (!details) {
     notFound();
   }
+  const reportEngagement = await getReportEngagement(id);
 
   return (
     <div className="space-y-8">
@@ -24,6 +26,7 @@ export default async function DashboardCompanyDetailPage({ params }: { params: P
         initialCompany={details.company}
         initialContacts={details.contacts}
         initialEmails={details.emails}
+        initialReportEngagement={reportEngagement}
       />
     </div>
   );
