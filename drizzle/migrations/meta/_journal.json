@@ -57,6 +57,13 @@
       "when": 1787286454634,
       "tag": "0007_goofy_rafael_vega",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787306382099,
+      "tag": "0008_abnormal_mattie_franklin",
+      "breakpoints": true
     }
   ]
 }

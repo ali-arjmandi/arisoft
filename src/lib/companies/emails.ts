@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { companies, contactPersons, emails } from "@/lib/db/schema";
 import type { AllowedSender } from "@/lib/email/senders";
@@ -7,7 +7,7 @@ import type { EmailStatus } from "@/lib/email/status";
 import type { EmailRecord, QueuedEmailListItem } from "./types";
 
 export interface RecordEmailSentInput {
-  companyId: string;
+  companyId: string | null;
   contactPersonId?: string;
   to: string;
   from: AllowedSender;
@@ -49,7 +49,7 @@ export async function recordEmailSent(input: RecordEmailSentInput): Promise<void
 }
 
 export interface CreateGeneratedEmailInput {
-  companyId: string;
+  companyId: string | null;
   contactPersonId?: string;
   to: string;
   from: AllowedSender;
@@ -114,9 +114,67 @@ export async function listQueuedEmails(): Promise<QueuedEmailListItem[]> {
       companyName: companies.companyName,
     })
     .from(emails)
-    .innerJoin(companies, eq(companies.id, emails.companyId))
+    // Left join: a queued email may have no company FK at all (see
+    // resolveEmailCompanyLink), and must still show up here.
+    .leftJoin(companies, eq(companies.id, emails.companyId))
     .where(eq(emails.status, "queued"))
     .orderBy(asc(emails.createdAt));
+}
+
+export async function getEmailById(id: string): Promise<EmailRecord | null> {
+  const db = getDb();
+  const [row] = await db.select().from(emails).where(eq(emails.id, id)).limit(1);
+  return row ?? null;
+}
+
+export interface CompanyEmailMatch {
+  companyId: string;
+  contactPersonId?: string;
+}
+
+// Reverse lookup used only when composing a brand-new email with no known
+// company context (never when a companyId is already known — see
+// resolveEmailCompanyLink below). Tries an exact case-insensitive match
+// against a contact person's email first, then the company's researched
+// general email; returns null (no forced FK) if neither matches.
+export async function findCompanyForEmail(email: string): Promise<CompanyEmailMatch | null> {
+  const db = getDb();
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return null;
+
+  const [contactMatch] = await db
+    .select({ companyId: contactPersons.companyId, contactPersonId: contactPersons.id })
+    .from(contactPersons)
+    .where(sql`lower(${contactPersons.email}) = ${normalized}`)
+    .limit(1);
+  if (contactMatch) return contactMatch;
+
+  const [companyMatch] = await db
+    .select({ companyId: companies.id })
+    .from(companies)
+    .where(sql`lower(${companies.analysis}->'contact'->>'generalEmail') = ${normalized}`)
+    .limit(1);
+  return companyMatch ?? null;
+}
+
+// Central FK-resolution rule: if the caller already knows the companyId
+// (editing/queuing a company's template, or the existing "send email to
+// this contact" flow), trust it as-is — a manually-typed receiver must
+// never override it. Only run the reverse lookup when composing completely
+// from scratch with no known company; if nothing matches, the email is
+// intentionally left with no company FK rather than forcing one.
+export async function resolveEmailCompanyLink(
+  explicitCompanyId: string | undefined,
+  explicitContactPersonId: string | undefined,
+  to: string,
+): Promise<{ companyId: string | null; contactPersonId: string | undefined }> {
+  if (explicitCompanyId) {
+    return { companyId: explicitCompanyId, contactPersonId: explicitContactPersonId };
+  }
+  const match = await findCompanyForEmail(to);
+  return match
+    ? { companyId: match.companyId, contactPersonId: match.contactPersonId }
+    : { companyId: null, contactPersonId: undefined };
 }
 
 export async function getQueuedEmailById(id: string): Promise<EmailRecord | null> {
@@ -139,18 +197,6 @@ export async function markEmailSent(id: string): Promise<EmailRecord | null> {
     .update(emails)
     .set({ status: "sent", sentAt: new Date() })
     .where(and(eq(emails.id, id), eq(emails.status, "queued")))
-    .returning();
-  return row ?? null;
-}
-
-// Promotes a draft to queued — the "Queue" action on the company detail
-// page. Only a draft can be queued this way.
-export async function queueDraftEmail(id: string): Promise<EmailRecord | null> {
-  const db = getDb();
-  const [row] = await db
-    .update(emails)
-    .set({ status: "queued" })
-    .where(and(eq(emails.id, id), eq(emails.status, "draft")))
     .returning();
   return row ?? null;
 }

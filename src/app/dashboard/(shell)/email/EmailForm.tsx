@@ -37,24 +37,37 @@ const fieldClassName =
 export function EmailForm({
   initialValues,
   awaitingGeneration: initialAwaitingGeneration = false,
+  initialCompanyId,
+  initialIncludeCta,
+  initialIncludeUnsubscribe,
+  isTemplateEdit = false,
 }: {
   initialValues: EmailContent;
   awaitingGeneration?: boolean;
+  initialCompanyId?: string;
+  initialIncludeCta?: boolean;
+  initialIncludeUnsubscribe?: boolean;
+  isTemplateEdit?: boolean;
 }) {
   const [content, setContent] = useState<EmailContent>(initialValues);
-  const [includeCta, setIncludeCta] = useState(true);
-  const [includeUnsubscribe, setIncludeUnsubscribe] = useState(false);
+  const [includeCta, setIncludeCta] = useState(initialIncludeCta ?? true);
+  const [includeUnsubscribe, setIncludeUnsubscribe] = useState(initialIncludeUnsubscribe ?? false);
   const [files, setFiles] = useState<File[]>([]);
   const [to, setTo] = useState("");
   const [from, setFrom] = useState<AllowedSender>(ALLOWED_SENDERS[0]);
-  const [companyId, setCompanyId] = useState<string | undefined>(undefined);
+  const [companyId, setCompanyId] = useState<string | undefined>(initialCompanyId);
   const [contactPersonId, setContactPersonId] = useState<string | undefined>(undefined);
-  const [status, setStatus] = useState<Status>("idle");
-  const [error, setError] = useState("");
+  const [sendStatus, setSendStatus] = useState<Status>("idle");
+  const [sendError, setSendError] = useState("");
+  const [queueStatus, setQueueStatus] = useState<Status>("idle");
+  const [queueError, setQueueError] = useState("");
   const [aiModalOpen, setAiModalOpen] = useState(false);
-  const [awaitingGeneration, setAwaitingGeneration] = useState(initialAwaitingGeneration);
+  // A template load never shows the AI-generation spinner — that state
+  // only applies to the unrelated Company Analyzer handoff.
+  const [awaitingGeneration, setAwaitingGeneration] = useState(isTemplateEdit ? false : initialAwaitingGeneration);
   const [prefillError, setPrefillError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const busy = sendStatus === "submitting" || queueStatus === "submitting";
 
   function updateField(name: ContentFieldName, value: string) {
     setContent((prev) => ({ ...prev, [name]: value }));
@@ -65,6 +78,12 @@ export function EmailForm({
   }
 
   useEffect(() => {
+    // A template load is a server-driven, authoritative prefill — it must
+    // never be clobbered by a stale/unrelated handoff message left over
+    // from the AI-generation or "send email to this contact" flows, which
+    // share this same localStorage key.
+    if (isTemplateEdit) return;
+
     function applyMessage(raw: string | null) {
       if (!raw) return;
       window.localStorage.removeItem(EMAIL_PREFILL_STORAGE_KEY);
@@ -107,7 +126,7 @@ export function EmailForm({
       window.removeEventListener("storage", handleStorage);
       window.clearTimeout(timeout);
     };
-  }, []);
+  }, [isTemplateEdit]);
 
   function addFiles(selected: FileList | null) {
     if (!selected || selected.length === 0) return;
@@ -119,19 +138,7 @@ export function EmailForm({
     setFiles((prev) => prev.filter((_, i) => i !== index));
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-
-    const attachmentErrors = validateAttachments(files);
-    if (attachmentErrors.length > 0) {
-      setStatus("error");
-      setError(attachmentErrors.join(" "));
-      return;
-    }
-
-    setStatus("submitting");
-
+  function buildFormData(): FormData {
     const payloadContent: EmailContent = {
       ...content,
       ctaLabel: includeCta ? content.ctaLabel : "",
@@ -148,11 +155,26 @@ export function EmailForm({
     for (const file of files) {
       formData.append("files", file);
     }
+    return formData;
+  }
+
+  async function handleSend(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSendError("");
+
+    const attachmentErrors = validateAttachments(files);
+    if (attachmentErrors.length > 0) {
+      setSendStatus("error");
+      setSendError(attachmentErrors.join(" "));
+      return;
+    }
+
+    setSendStatus("submitting");
 
     try {
       const res = await fetch("/api/dashboard/send-email", {
         method: "POST",
-        body: formData,
+        body: buildFormData(),
       });
 
       if (!res.ok) {
@@ -160,10 +182,36 @@ export function EmailForm({
         throw new Error(data.error || "Failed to send email.");
       }
 
-      setStatus("success");
+      setSendStatus("success");
     } catch (err) {
-      setStatus("error");
-      setError(err instanceof Error ? err.message : "Failed to send email.");
+      setSendStatus("error");
+      setSendError(err instanceof Error ? err.message : "Failed to send email.");
+    }
+  }
+
+  // Creates a brand-new queued email — it never touches whatever draft this
+  // page may have been opened from (see isTemplateEdit above). Attachments
+  // can't be carried through a queued send later, so this is only offered
+  // once none are attached (see the disabled state on the button below).
+  async function handleQueue() {
+    setQueueError("");
+    setQueueStatus("submitting");
+
+    try {
+      const res = await fetch("/api/dashboard/queue-email", {
+        method: "POST",
+        body: buildFormData(),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to queue email.");
+      }
+
+      setQueueStatus("success");
+    } catch (err) {
+      setQueueStatus("error");
+      setQueueError(err instanceof Error ? err.message : "Failed to queue email.");
     }
   }
 
@@ -209,7 +257,7 @@ export function EmailForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-border bg-surface p-8 shadow-sm">
+    <form onSubmit={handleSend} className="space-y-5 rounded-2xl border border-border bg-surface p-8 shadow-sm">
       {prefillError && <p className="text-center text-sm font-medium text-red-600">{prefillError}</p>}
 
       <button
@@ -390,18 +438,36 @@ export function EmailForm({
         </select>
       </div>
 
-      <button
-        type="submit"
-        disabled={status === "submitting"}
-        className="w-full rounded-full bg-blue-gradient border border-primary px-7 py-3.5 text-sm font-medium text-white transition duration-300 hover:shadow-md hover:shadow-primary/50 disabled:opacity-60"
-      >
-        {status === "submitting" ? "Sending..." : "Send email"}
-      </button>
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <button
+          type="submit"
+          disabled={busy}
+          className="w-full rounded-full bg-blue-gradient border border-primary px-7 py-3.5 text-sm font-medium text-white transition duration-300 hover:shadow-md hover:shadow-primary/50 disabled:opacity-60"
+        >
+          {sendStatus === "submitting" ? "Sending..." : "Send email"}
+        </button>
+        <button
+          type="button"
+          onClick={handleQueue}
+          disabled={busy || files.length > 0}
+          title={files.length > 0 ? "Remove attachments to queue this email." : undefined}
+          className="w-full rounded-full border border-primary px-7 py-3.5 text-sm font-medium text-primary transition hover:bg-surface-muted disabled:opacity-60"
+        >
+          {queueStatus === "submitting" ? "Queuing..." : "Queue email"}
+        </button>
+      </div>
+      {files.length > 0 && (
+        <p className="text-center text-xs text-muted">
+          Attachments can only be sent immediately — remove them to queue this email instead.
+        </p>
+      )}
 
-      {status === "success" && (
+      {sendStatus === "success" && (
         <p className="text-center text-sm font-medium text-emerald-600">Email sent to {to}.</p>
       )}
-      {status === "error" && <p className="text-center text-sm font-medium text-red-600">{error}</p>}
+      {sendStatus === "error" && <p className="text-center text-sm font-medium text-red-600">{sendError}</p>}
+      {queueStatus === "success" && <p className="text-center text-sm font-medium text-emerald-600">Email queued.</p>}
+      {queueStatus === "error" && <p className="text-center text-sm font-medium text-red-600">{queueError}</p>}
 
       <GenerateWithAiModal
         open={aiModalOpen}

@@ -134,13 +134,17 @@ export function EmailQueueTable({ initialItems }: { initialItems: QueuedEmailLis
                       className="cursor-pointer px-6 py-4 font-medium text-foreground"
                       onClick={() => setExpandedId(expanded ? null : item.id)}
                     >
-                      <Link
-                        href={`/dashboard/companies/${item.companyId}`}
-                        onClick={(event) => event.stopPropagation()}
-                        className="hover:underline"
-                      >
-                        {item.companyName}
-                      </Link>
+                      {item.companyId ? (
+                        <Link
+                          href={`/dashboard/companies/${item.companyId}`}
+                          onClick={(event) => event.stopPropagation()}
+                          className="hover:underline"
+                        >
+                          {item.companyName}
+                        </Link>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-body" onClick={() => setExpandedId(expanded ? null : item.id)}>
                       {item.contactNameSnapshot ?? item.contactEmailSnapshot}

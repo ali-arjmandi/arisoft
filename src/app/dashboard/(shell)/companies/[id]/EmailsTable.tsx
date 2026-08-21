@@ -38,48 +38,12 @@ function DetailField({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function EmailsTable({ companyId, initialEmails }: { companyId: string; initialEmails: EmailRecord[] }) {
+export function EmailsTable({ initialEmails }: { initialEmails: EmailRecord[] }) {
   const [emails, setEmails] = useState<EmailRecord[]>(initialEmails);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const { page, setPage, totalPages, pageItems } = usePagination(emails, 10);
-
-  async function handleGenerate() {
-    setGenerating(true);
-    setError("");
-    try {
-      const res = await fetch(`/api/dashboard/companies/${companyId}/generate-email`, { method: "POST" });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error || "Failed to generate email.");
-      }
-      setEmails((prev) => [data.item, ...prev]);
-      setPage(1);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate email.");
-    } finally {
-      setGenerating(false);
-    }
-  }
-
-  async function handleQueue(id: string) {
-    setBusyId(id);
-    setError("");
-    try {
-      const res = await fetch(`/api/dashboard/emails/${id}/queue`, { method: "POST" });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.ok) {
-        throw new Error(data.error || "Failed to queue email.");
-      }
-      setEmails((prev) => prev.map((email) => (email.id === id ? data.item : email)));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to queue email.");
-    } finally {
-      setBusyId(null);
-    }
-  }
 
   async function handleDelete(id: string) {
     if (!window.confirm("Discard this email? This can't be undone.")) return;
@@ -101,21 +65,11 @@ export function EmailsTable({ companyId, initialEmails }: { companyId: string; i
 
   return (
     <div className="space-y-4 rounded-2xl border border-border bg-surface p-8 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-foreground">Emails</h2>
-        <button
-          type="button"
-          onClick={handleGenerate}
-          disabled={generating}
-          className="rounded-full border border-primary px-4 py-2 text-sm font-medium text-primary transition hover:bg-surface-muted disabled:opacity-60"
-        >
-          {generating ? "Generating..." : "Generate email"}
-        </button>
-      </div>
+      <h2 className="text-lg font-semibold text-foreground">Queued &amp; sent emails</h2>
       {error && <p className="text-sm font-medium text-red-600">{error}</p>}
 
       {emails.length === 0 ? (
-        <p className="text-sm text-muted">No emails for this company yet.</p>
+        <p className="text-sm text-muted">No queued or sent emails for this company yet.</p>
       ) : (
         <div className="overflow-hidden rounded-lg border border-border">
           <table className="w-full text-left text-sm">
@@ -150,16 +104,6 @@ export function EmailsTable({ companyId, initialEmails }: { companyId: string; i
                       </td>
                       <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
                         <div className="flex gap-3 text-xs font-medium">
-                          {email.status === "draft" && (
-                            <button
-                              type="button"
-                              onClick={() => handleQueue(email.id)}
-                              disabled={busy}
-                              className="text-primary hover:underline disabled:opacity-60"
-                            >
-                              Queue
-                            </button>
-                          )}
                           {email.status !== "sent" && (
                             <button
                               type="button"

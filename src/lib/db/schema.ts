@@ -47,9 +47,10 @@ export const emails = pgTable(
   "emails",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    // Nullable: a manually-composed email with no known/matched company
+    // context is still logged, just with no company FK (see
+    // resolveEmailCompanyLink in src/lib/companies/emails.ts).
+    companyId: uuid("company_id").references(() => companies.id, { onDelete: "cascade" }),
     contactPersonId: uuid("contact_person_id").references(() => contactPersons.id, { onDelete: "set null" }),
     contactNameSnapshot: text("contact_name_snapshot"),
     contactEmailSnapshot: text("contact_email_snapshot").notNull(),

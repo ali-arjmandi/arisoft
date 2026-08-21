@@ -4,7 +4,7 @@ import { validateAttachments } from "@/lib/email/attachments";
 import { SESSION_COOKIE_NAME, verifySessionCookie } from "@/lib/dashboard/session";
 import { parseSendRequest } from "@/lib/dashboard/validate";
 import { sendEmail } from "@/lib/email/sendEmail";
-import { recordEmailSent } from "@/lib/companies/emails";
+import { recordEmailSent, resolveEmailCompanyLink } from "@/lib/companies/emails";
 
 export async function POST(request: NextRequest) {
   const cookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
@@ -78,14 +78,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Failed to send email." }, { status: 502 });
   }
 
-  if (companyId) {
-    try {
-      await recordEmailSent({ companyId, contactPersonId, to, from, content });
-    } catch (error) {
-      // The email already sent successfully; a logging failure must never
-      // surface as a user-facing send failure.
-      console.error("dashboard send-email: failed to log emails row:", error);
-    }
+  try {
+    const resolved = await resolveEmailCompanyLink(companyId, contactPersonId, to);
+    await recordEmailSent({ companyId: resolved.companyId, contactPersonId: resolved.contactPersonId, to, from, content });
+  } catch (error) {
+    // The email already sent successfully; a logging failure must never
+    // surface as a user-facing send failure.
+    console.error("dashboard send-email: failed to log emails row:", error);
   }
 
   return NextResponse.json({ ok: true });

@@ -3,6 +3,7 @@
 import type { CompanyRecord, ContactPersonRecord, EmailRecord } from "@/lib/companies/types";
 import { CompanyAnalysisEditor } from "./CompanyAnalysisEditor";
 import { ContactPersonsTable } from "./ContactPersonsTable";
+import { EmailTemplatesTable } from "./EmailTemplatesTable";
 import { EmailsTable } from "./EmailsTable";
 
 export function CompanyDetailClient({
@@ -16,6 +17,9 @@ export function CompanyDetailClient({
   initialContacts: ContactPersonRecord[];
   initialEmails: EmailRecord[];
 }) {
+  const templates = initialEmails.filter((email) => email.status === "draft");
+  const sentAndQueued = initialEmails.filter((email) => email.status !== "draft");
+
   return (
     <div className="space-y-8">
       <ContactPersonsTable
@@ -23,7 +27,8 @@ export function CompanyDetailClient({
         initialContacts={initialContacts}
         suggestedContacts={initialCompany.analysis.decisionMakerContacts ?? []}
       />
-      <EmailsTable companyId={companyId} initialEmails={initialEmails} />
+      <EmailTemplatesTable companyId={companyId} initialTemplates={templates} />
+      <EmailsTable initialEmails={sentAndQueued} />
       <CompanyAnalysisEditor companyId={companyId} initialAnalysis={initialCompany.analysis} />
     </div>
   );

@@ -1,0 +1,1 @@
+ALTER TABLE "emails" ALTER COLUMN "company_id" DROP NOT NULL;

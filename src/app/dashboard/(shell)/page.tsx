@@ -61,22 +61,33 @@ export default async function DashboardOverviewPage() {
             <p className="mt-4 text-sm text-muted">No emails sent yet.</p>
           ) : (
             <ul className="mt-4 divide-y divide-border">
-              {overview.recentEmails.map((email) => (
-                <li key={email.id}>
-                  <Link
-                    href={`/dashboard/companies/${email.companyId}`}
-                    className="flex items-center justify-between gap-3 py-3 text-sm hover:text-primary"
-                  >
+              {overview.recentEmails.map((email) => {
+                const rowContent = (
+                  <>
                     <span>
                       <span className="font-medium text-foreground">
                         {email.contactNameSnapshot ?? email.contactEmailSnapshot}
                       </span>
-                      <span className="text-muted"> · {email.companyName}</span>
+                      <span className="text-muted"> · {email.companyName ?? "—"}</span>
                     </span>
                     <span className="shrink-0 text-muted">{formatDate(email.sentAt)}</span>
-                  </Link>
-                </li>
-              ))}
+                  </>
+                );
+                return (
+                  <li key={email.id}>
+                    {email.companyId ? (
+                      <Link
+                        href={`/dashboard/companies/${email.companyId}`}
+                        className="flex items-center justify-between gap-3 py-3 text-sm hover:text-primary"
+                      >
+                        {rowContent}
+                      </Link>
+                    ) : (
+                      <div className="flex items-center justify-between gap-3 py-3 text-sm">{rowContent}</div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

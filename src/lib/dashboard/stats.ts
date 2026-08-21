@@ -10,8 +10,8 @@ const RECENT_LIMIT = 5;
 
 export interface RecentEmail {
   id: string;
-  companyId: string;
-  companyName: string;
+  companyId: string | null;
+  companyName: string | null;
   contactNameSnapshot: string | null;
   contactEmailSnapshot: string;
   fromSender: AllowedSender;
@@ -56,7 +56,9 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
           sentAt: emails.sentAt,
         })
         .from(emails)
-        .innerJoin(companies, eq(companies.id, emails.companyId))
+        // Left join: a sent email may have no company FK at all (see
+        // resolveEmailCompanyLink), and must still show up here.
+        .leftJoin(companies, eq(companies.id, emails.companyId))
         .where(eq(emails.status, "sent"))
         .orderBy(desc(emails.sentAt))
         .limit(RECENT_LIMIT),

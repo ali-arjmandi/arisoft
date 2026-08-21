@@ -19,7 +19,7 @@ export interface CompanyWithDetails {
   emails: EmailRecord[];
 }
 
-export type QueuedEmailListItem = EmailRecord & { companyName: string };
+export type QueuedEmailListItem = EmailRecord & { companyName: string | null };
 
 export interface ContactPersonInput {
   name: string;
