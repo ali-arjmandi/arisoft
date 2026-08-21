@@ -24,4 +24,5 @@ export interface ContactPersonInput {
   name: string;
   role: string | null;
   email: string;
+  phone: string | null;
 }

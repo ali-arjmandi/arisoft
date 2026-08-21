@@ -167,11 +167,12 @@ export function parseContactPersonInput(value: unknown): ParseResult<ContactPers
   const errors: string[] = [];
   const name = readRequiredString(record, "name", errors);
   const role = readNullableString(record, "role", errors);
+  const phone = readNullableString(record, "phone", errors);
 
   const emailRaw = record.email;
   const email = typeof emailRaw === "string" ? emailRaw.trim() : "";
   if (!isValidEmail(email)) errors.push("A valid contact email is required.");
 
   if (errors.length > 0) return { ok: false, errors };
-  return { ok: true, data: { name, role, email } };
+  return { ok: true, data: { name, role, email, phone } };
 }

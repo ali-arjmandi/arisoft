@@ -13,9 +13,10 @@ interface ContactFormState {
   name: string;
   role: string;
   email: string;
+  phone: string;
 }
 
-const EMPTY_FORM: ContactFormState = { name: "", role: "", email: "" };
+const EMPTY_FORM: ContactFormState = { name: "", role: "", email: "", phone: "" };
 
 export function ContactPersonsTable({
   companyId,
@@ -33,7 +34,7 @@ export function ContactPersonsTable({
 
   function startEdit(contact: ContactPersonRecord) {
     setEditingId(contact.id);
-    setForm({ name: contact.name, role: contact.role ?? "", email: contact.email });
+    setForm({ name: contact.name, role: contact.role ?? "", email: contact.email, phone: contact.phone ?? "" });
     setError("");
   }
 
@@ -52,7 +53,12 @@ export function ContactPersonsTable({
   async function handleSubmit() {
     setSaving(true);
     setError("");
-    const body = { name: form.name.trim(), role: form.role.trim() || null, email: form.email.trim() };
+    const body = {
+      name: form.name.trim(),
+      role: form.role.trim() || null,
+      email: form.email.trim(),
+      phone: form.phone.trim() || null,
+    };
 
     try {
       const url =
@@ -140,6 +146,7 @@ export function ContactPersonsTable({
                 <p className="text-xs text-muted">
                   {contact.role ? `${contact.role} · ` : ""}
                   {contact.email}
+                  {contact.phone ? ` · ${contact.phone}` : ""}
                 </p>
               </div>
               <div className="flex shrink-0 gap-3 text-xs font-medium">
@@ -183,7 +190,7 @@ function ContactForm({
   saving: boolean;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-3 rounded-lg border border-border p-4 sm:grid-cols-3">
+    <div className="grid grid-cols-1 gap-3 rounded-lg border border-border p-4 sm:grid-cols-2">
       <input
         type="text"
         placeholder="Name"
@@ -205,7 +212,14 @@ function ContactForm({
         onChange={(event) => setForm({ ...form, email: event.target.value })}
         className={inputClassName}
       />
-      <div className="flex gap-3 sm:col-span-3">
+      <input
+        type="tel"
+        placeholder="Phone (optional)"
+        value={form.phone}
+        onChange={(event) => setForm({ ...form, phone: event.target.value })}
+        className={inputClassName}
+      />
+      <div className="flex gap-3 sm:col-span-2">
         <button
           type="button"
           onClick={onSubmit}

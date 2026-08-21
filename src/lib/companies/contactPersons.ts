@@ -13,7 +13,7 @@ export async function createContactPerson(
 
   const [created] = await db
     .insert(contactPersons)
-    .values({ companyId, name: input.name, role: input.role, email: input.email })
+    .values({ companyId, name: input.name, role: input.role, email: input.email, phone: input.phone })
     .returning();
   return created;
 }
@@ -28,7 +28,7 @@ export async function updateContactPerson(
   const db = getDb();
   const [updated] = await db
     .update(contactPersons)
-    .set({ name: input.name, role: input.role, email: input.email, updatedAt: new Date() })
+    .set({ name: input.name, role: input.role, email: input.email, phone: input.phone, updatedAt: new Date() })
     .where(and(eq(contactPersons.id, contactId), eq(contactPersons.companyId, companyId)))
     .returning();
   return updated ?? null;

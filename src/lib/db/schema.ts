@@ -26,6 +26,7 @@ export const contactPersons = pgTable(
     name: text("name").notNull(),
     role: text("role"),
     email: text("email").notNull(),
+    phone: text("phone"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
