@@ -4,6 +4,7 @@
 // 1), which made CI failures impossible to diagnose. This script lets the
 // real error reach the log.
 import { Pool } from "pg";
+import { parse as parseConnectionString } from "pg-connection-string";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 
@@ -13,10 +14,14 @@ if (!connectionString) {
   process.exit(1);
 }
 
-// ssl config — see src/lib/db/client.ts for why this is conditional.
-const isLocalDb = /^(localhost|127\.0\.0\.1)$/.test(new URL(connectionString).hostname);
+// Parsed into discrete fields, not passed as `connectionString` — see
+// src/lib/db/client.ts for why (pg would otherwise silently discard our ssl
+// override).
+const parsed = parseConnectionString(connectionString);
+const isLocalDb = parsed.host === "localhost" || parsed.host === "127.0.0.1";
 const pool = new Pool({
-  connectionString,
+  ...parsed,
+  database: parsed.database ?? undefined,
   ssl: isLocalDb ? undefined : { rejectUnauthorized: false },
 });
 
