@@ -8,7 +8,7 @@ export function renderEmail(content: EmailContent): string {
   const year = new Date().getFullYear().toString();
 
   const unsubscribeBlock = content.unsubscribeUrl
-    ? `<a href="${content.unsubscribeUrl}" style="color:#999999;text-decoration:underline;">Unsubscribe</a>&nbsp;&middot;&nbsp;`
+    ? `<a href="${content.unsubscribeUrl}" style="color:#999999;text-decoration:underline;">Unsubscribe</a>`
     : "";
 
   // The CTA button is optional (see the "Include CTA button" checkbox on

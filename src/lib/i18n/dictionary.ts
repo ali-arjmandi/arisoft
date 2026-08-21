@@ -73,6 +73,8 @@ export interface Dictionary {
     location: string;
     copyright: string;
     backToTop: string;
+    kvkLabel: string;
+    btwLabel: string;
   };
 }
 
@@ -248,6 +250,8 @@ export const dictionary: Record<Locale, Dictionary> = {
       location: "Delft, Netherlands",
       copyright: "Arisoft. All rights reserved.",
       backToTop: "Back to top",
+      kvkLabel: "KvK number",
+      btwLabel: "BTW-id",
     },
   },
   nl: {
@@ -421,6 +425,8 @@ export const dictionary: Record<Locale, Dictionary> = {
       location: "Delft, Nederland",
       copyright: "Arisoft. Alle rechten voorbehouden.",
       backToTop: "Terug naar boven",
+      kvkLabel: "KvK-nummer",
+      btwLabel: "BTW-id",
     },
   },
 };

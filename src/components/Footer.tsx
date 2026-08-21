@@ -2,6 +2,7 @@
 
 import { Logo } from "./Logo";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
+import { SELLER } from "@/lib/invoice/seller";
 
 export function Footer() {
   const { t } = useLanguage();
@@ -57,8 +58,18 @@ export function Footer() {
         </div>
       </div>
 
-      <div className="py-4 text-center text-sm text-muted sm:py-8">
-        © {new Date().getFullYear()} {t.footer.copyright}
+      <div className="flex flex-col items-center gap-4 py-4 sm:py-8">
+        <div className="text-center text-sm text-muted">
+          © {new Date().getFullYear()} {t.footer.copyright}
+        </div>
+        <div className="flex flex-col items-center gap-1 text-center text-xs text-muted">
+          <span>
+            {t.footer.kvkLabel}: {SELLER.kvkNumber}
+          </span>
+          <span>
+            {t.footer.btwLabel}: {SELLER.btwNumber}
+          </span>
+        </div>
       </div>
 
       <div className="my-10 flex w-full justify-center">
