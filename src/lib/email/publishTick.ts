@@ -5,7 +5,7 @@ import {
   markEmailSent,
   peekNextQueuedEmailForSend,
 } from "@/lib/companies/emails";
-import { getEmailSendState } from "./publishState";
+import { getEmailSendState, releaseSendLock, tryAcquireSendLock } from "./publishState";
 import { renderEmailForSmtp } from "./render";
 import { sendEmail } from "./sendEmail";
 
@@ -34,34 +34,44 @@ export async function runEmailSendTick(): Promise<{ isRunning: boolean }> {
   const state = await getEmailSendState();
   if (!state.isRunning) return { isRunning: false };
 
-  // Peek (read-only) before claiming: checking this sender's pace/caps
-  // first means a row that's simply "not due yet" is never claimed, so it
-  // never starts a retry-cooldown for no reason (see
-  // claimNextQueuedEmailForSend's doc comment).
-  const next = await peekNextQueuedEmailForSend(RETRY_COOLDOWN_MINUTES);
-  if (!next) return { isRunning: true };
-
-  const stats = await getEmailSendStats(next.fromSender);
-  const notBeforeMs = stats.lastSentAt ? stats.lastSentAt.getTime() + jitteredIntervalMs() : 0;
-  if (Date.now() < notBeforeMs) return { isRunning: true };
-  if (stats.sentLastHour >= MAX_PER_HOUR || stats.sentLastDay >= MAX_PER_DAY) return { isRunning: true };
-
-  const claimed = await claimNextQueuedEmailForSend(RETRY_COOLDOWN_MINUTES);
-  if (!claimed) return { isRunning: true }; // lost the race to another tick
+  // Guards against an overlapping invocation (a scheduler firing again
+  // before the previous tick finished) independently deciding "enough time
+  // has passed since the last send" and sending a second email in
+  // parallel — a no-op if the lock is already held, not "not running".
+  if (!(await tryAcquireSendLock())) return { isRunning: true };
 
   try {
-    const { html, attachments } = renderEmailForSmtp(claimed.content);
-    await sendEmail({
-      to: claimed.contactEmailSnapshot,
-      from: claimed.fromSender,
-      subject: claimed.content.subject,
-      html,
-      attachments,
-    });
-    await markEmailSent(claimed.id);
-  } catch (error) {
-    await markEmailSendFailed(claimed.id, errorMessage(error));
-  }
+    // Peek (read-only) before claiming: checking this sender's pace/caps
+    // first means a row that's simply "not due yet" is never claimed, so it
+    // never starts a retry-cooldown for no reason (see
+    // claimNextQueuedEmailForSend's doc comment).
+    const next = await peekNextQueuedEmailForSend(RETRY_COOLDOWN_MINUTES);
+    if (!next) return { isRunning: true };
 
-  return { isRunning: true };
+    const stats = await getEmailSendStats(next.fromSender);
+    const notBeforeMs = stats.lastSentAt ? stats.lastSentAt.getTime() + jitteredIntervalMs() : 0;
+    if (Date.now() < notBeforeMs) return { isRunning: true };
+    if (stats.sentLastHour >= MAX_PER_HOUR || stats.sentLastDay >= MAX_PER_DAY) return { isRunning: true };
+
+    const claimed = await claimNextQueuedEmailForSend(RETRY_COOLDOWN_MINUTES);
+    if (!claimed) return { isRunning: true }; // lost the race to another tick
+
+    try {
+      const { html, attachments } = renderEmailForSmtp(claimed.content);
+      await sendEmail({
+        to: claimed.contactEmailSnapshot,
+        from: claimed.fromSender,
+        subject: claimed.content.subject,
+        html,
+        attachments,
+      });
+      await markEmailSent(claimed.id);
+    } catch (error) {
+      await markEmailSendFailed(claimed.id, errorMessage(error));
+    }
+
+    return { isRunning: true };
+  } finally {
+    await releaseSendLock();
+  }
 }

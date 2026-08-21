@@ -113,6 +113,16 @@ export const queueState = pgTable("queue_state", {
   isRunning: boolean("is_running").notNull().default(false),
   generateEmailsMode: text("generate_emails_mode").$type<GenerateEmailsMode>().notNull().default("queued"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  // Set for the duration of one runQueueTick() call (src/lib/companyQueue/
+  // processing.ts), so an overlapping cron-triggered invocation — Amplify
+  // SSR runs as multiple concurrent Lambda instances, and an external
+  // scheduler doesn't wait for the previous call to finish before firing
+  // the next — sees it's already held and no-ops instead of claiming and
+  // processing its own extra QUEUE_BATCH_SIZE batch on top. Cleared when
+  // the tick finishes; treated as stale (reclaimable) past
+  // TICK_LOCK_STALE_MINUTES in case a Lambda is killed mid-tick without
+  // reaching its `finally`.
+  lockedAt: timestamp("locked_at", { withTimezone: true }),
 });
 
 // Singleton row (id always 1), same shape and lazy-create pattern as
@@ -125,6 +135,12 @@ export const emailSendState = pgTable("email_send_state", {
   id: smallint("id").primaryKey().default(1),
   isRunning: boolean("is_running").notNull().default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  // Same overlapping-tick lock as queueState.lockedAt above, held for the
+  // duration of one runEmailSendTick() call. Matters here even more than
+  // for the company queue: two overlapping ticks would each independently
+  // see "enough time has passed since the last send" and each send an
+  // email, defeating the whole point of the pacing.
+  lockedAt: timestamp("locked_at", { withTimezone: true }),
 });
 
 // The unguessable bearer token for a company's public shareable report link

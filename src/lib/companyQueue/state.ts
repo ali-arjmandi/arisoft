@@ -1,10 +1,11 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { queueState } from "@/lib/db/schema";
 import type { GenerateEmailsMode } from "./status";
 import type { QueueStateRecord } from "./types";
 
 const SINGLETON_ID = 1;
+const TICK_LOCK_STALE_MINUTES = 10;
 
 // Lazily creates the singleton row if it doesn't exist yet, instead of
 // relying on a seed migration (this repo has no seed-data system). Safe
@@ -50,4 +51,35 @@ export async function setGenerateEmailsMode(generateEmailsMode: GenerateEmailsMo
     })
     .returning();
   return row;
+}
+
+// Prevents an overlapping tick invocation (a scheduler firing again before
+// the previous call finished, landing on a different concurrent Lambda
+// instance) from claiming and processing its own extra batch on top of one
+// already in flight. Atomic single UPDATE, not a separate
+// read-then-write — the isRunning check and the lock acquisition happen in
+// the same statement, so there's no gap for two ticks to both see "free"
+// and both proceed. A lock older than TICK_LOCK_STALE_MINUTES is treated as
+// abandoned (the holder was killed mid-tick, e.g. a Lambda timeout, before
+// reaching releaseTickLock's `finally`) and can be reclaimed.
+export async function tryAcquireTickLock(): Promise<boolean> {
+  const db = getDb();
+  const staleThreshold = new Date(Date.now() - TICK_LOCK_STALE_MINUTES * 60_000);
+  const acquired = await db
+    .update(queueState)
+    .set({ lockedAt: new Date() })
+    .where(
+      and(
+        eq(queueState.id, SINGLETON_ID),
+        eq(queueState.isRunning, true),
+        or(isNull(queueState.lockedAt), lt(queueState.lockedAt, staleThreshold)),
+      ),
+    )
+    .returning({ id: queueState.id });
+  return acquired.length > 0;
+}
+
+export async function releaseTickLock(): Promise<void> {
+  const db = getDb();
+  await db.update(queueState).set({ lockedAt: null }).where(eq(queueState.id, SINGLETON_ID));
 }
