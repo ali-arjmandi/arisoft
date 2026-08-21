@@ -12,7 +12,7 @@ frontend:
         # separate runtime. Writing them into .env.production here is what
         # makes them available there too.
         # https://docs.aws.amazon.com/amplify/latest/userguide/ssr-environment-variables.html
-        - env | grep -Ee 'DASHBOARD_|OPENAI_' >> .env.production
+        - env | grep -Ee 'DASHBOARD_|OPENAI_|CRON_|EMAIL_SEND_' >> .env.production
         # Runs once per deploy, before the new build ships, using the
         # DASHBOARD_DATABASE_URL configured in the Amplify console. This is
         # deliberately NOT run at app/Lambda startup — SSR runs as multiple
