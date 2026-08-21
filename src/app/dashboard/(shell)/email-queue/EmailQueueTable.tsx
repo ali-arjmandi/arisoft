@@ -1,10 +1,12 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import type { QueuedEmailListItem } from "@/lib/companies/types";
 import { usePagination } from "../usePagination";
 import { Pagination } from "../Pagination";
+
+const POLL_INTERVAL_MS = 10_000;
 
 function formatDate(date: Date): string {
   return new Date(date).toLocaleString("en-GB", {
@@ -31,6 +33,38 @@ export function EmailQueueTable({ initialItems }: { initialItems: QueuedEmailLis
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const { page, setPage, totalPages, pageItems } = usePagination(items, 10);
+
+  // Keeps the list live — new rows queued by the company queue (possibly in
+  // another tab) or removed elsewhere show up without a manual reload. A
+  // single in-flight poll at a time: the next one is only scheduled once
+  // the previous resolves, not on a fixed interval.
+  useEffect(() => {
+    let cancelled = false;
+    let timeoutId: number | null = null;
+
+    async function poll() {
+      try {
+        const res = await fetch("/api/dashboard/email-queue");
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.ok) {
+          setItems(data.items);
+        }
+      } catch {
+        // soft fail — try again next cycle
+      } finally {
+        if (!cancelled) {
+          timeoutId = window.setTimeout(poll, POLL_INTERVAL_MS);
+        }
+      }
+    }
+
+    timeoutId = window.setTimeout(poll, POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+    };
+  }, []);
 
   async function handleSend(item: QueuedEmailListItem) {
     if (!window.confirm(`Send this email to ${item.contactEmailSnapshot}?`)) return;

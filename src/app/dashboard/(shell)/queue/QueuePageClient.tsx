@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { CompanyQueueItemRecord } from "@/lib/companyQueue/types";
 import { AddQueueItemForm } from "./AddQueueItemForm";
 import { QueueCsvUpload } from "./QueueCsvUpload";
@@ -24,23 +24,18 @@ export function QueuePageClient({
   const [toggling, setToggling] = useState(false);
   const [generateEmails, setGenerateEmails] = useState(initialGenerateEmails);
   const [generateEmailsSaving, setGenerateEmailsSaving] = useState(false);
-  const isRunningRef = useRef(isRunning);
-  const timeoutRef = useRef<number | null>(null);
 
+  // Polls continuously (not just while running) so the list — and the
+  // running/stopped state itself — stays live even when this tab isn't the
+  // one driving processing (another tab or admin started/stopped it, or
+  // added items). A single in-flight poll at a time: the next one is only
+  // scheduled once the previous resolves, not on a fixed interval, since a
+  // tick can legitimately take up to ~a minute when it does claim work
+  // (the analyze step), which would otherwise overlap a naive setInterval.
+  // A failed fetch is treated as a soft "try again next cycle."
   useEffect(() => {
-    isRunningRef.current = isRunning;
-  }, [isRunning]);
-
-  // A single in-flight tick per tab: the next tick is only scheduled once
-  // the previous one resolves (success or failure), not on a fixed
-  // interval. A tick can legitimately take up to ~a minute (the analyze
-  // step), which would otherwise overlap a naive 10s setInterval. A failed
-  // fetch is treated as a soft "try again next cycle" — the server-side
-  // work may have completed even if the response never arrived.
-  useEffect(() => {
-    if (!isRunning) return;
-
     let cancelled = false;
+    let timeoutId: number | null = null;
 
     async function tick() {
       try {
@@ -48,12 +43,13 @@ export function QueuePageClient({
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.ok) {
           setItems(data.items);
+          setIsRunning(data.isRunning);
         }
       } catch {
         // swallowed — see comment above
       } finally {
-        if (!cancelled && isRunningRef.current) {
-          timeoutRef.current = window.setTimeout(tick, POLL_INTERVAL_MS);
+        if (!cancelled) {
+          timeoutId = window.setTimeout(tick, POLL_INTERVAL_MS);
         }
       }
     }
@@ -62,9 +58,9 @@ export function QueuePageClient({
 
     return () => {
       cancelled = true;
-      if (timeoutRef.current !== null) window.clearTimeout(timeoutRef.current);
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
     };
-  }, [isRunning]);
+  }, []);
 
   async function handleToggle() {
     setToggling(true);
