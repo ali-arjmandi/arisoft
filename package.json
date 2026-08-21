@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "db:generate": "dotenv -e .env.local -- drizzle-kit generate",
-    "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate"
+    "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate",
+    "db:migrate:ci": "drizzle-kit migrate"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.6.1",
