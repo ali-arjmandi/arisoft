@@ -46,6 +46,9 @@ export async function listCompanies(): Promise<CompanyListItem[]> {
       companyName: companies.companyName,
       kvkNumber: companies.kvkNumber,
       createdAt: companies.createdAt,
+      // Counted via a subquery rather than a join, so it isn't inflated by
+      // the emails join's fan-out.
+      contactCount: sql<number>`(select count(*) from ${contactPersons} where ${contactPersons.companyId} = ${companies.id})`,
       // Only counts rows that have actually been sent — draft/queued rows
       // don't count as "sent" yet.
       emailCount: sql<number>`count(${emails.id}) filter (where ${emails.status} = 'sent')`,
@@ -55,7 +58,7 @@ export async function listCompanies(): Promise<CompanyListItem[]> {
     .groupBy(companies.id)
     .orderBy(desc(companies.createdAt));
 
-  return rows.map((row) => ({ ...row, emailCount: Number(row.emailCount) }));
+  return rows.map((row) => ({ ...row, contactCount: Number(row.contactCount), emailCount: Number(row.emailCount) }));
 }
 
 export async function getCompanyById(id: string): Promise<CompanyRecord | null> {

@@ -28,6 +28,7 @@ export function CompaniesTable({ companies }: { companies: CompanyListItem[] }) 
             <tr className="border-b border-border text-xs font-medium uppercase tracking-wide text-muted">
               <th className="px-6 py-3">Company name</th>
               <th className="px-6 py-3">KVK number</th>
+              <th className="px-6 py-3">Contact persons</th>
               <th className="px-6 py-3">Emails sent</th>
               <th className="px-6 py-3">Date added</th>
             </tr>
@@ -38,6 +39,7 @@ export function CompaniesTable({ companies }: { companies: CompanyListItem[] }) 
                 <tr className="border-b border-border last:border-0 hover:bg-surface-muted">
                   <td className="px-6 py-4 font-medium text-foreground">{company.companyName}</td>
                   <td className="px-6 py-4 text-body">{company.kvkNumber ?? <span className="text-muted">—</span>}</td>
+                  <td className="px-6 py-4 text-body">{company.contactCount}</td>
                   <td className="px-6 py-4 text-body">{company.emailCount}</td>
                   <td className="px-6 py-4 text-body">{formatDate(company.createdAt)}</td>
                 </tr>

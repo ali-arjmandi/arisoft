@@ -8,6 +8,7 @@ export interface CompanyListItem {
   id: string;
   companyName: string;
   kvkNumber: string | null;
+  contactCount: number;
   emailCount: number;
   createdAt: Date;
 }
