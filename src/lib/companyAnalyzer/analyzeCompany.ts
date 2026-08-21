@@ -16,6 +16,14 @@ export interface CompanyAnalysisContact {
   namedContact: string | null;
 }
 
+export interface DecisionMakerContact {
+  name: string;
+  role: string | null;
+  email: string | null;
+  phone: string | null;
+  evidenceSource: string | null;
+}
+
 export interface CompanyWebsiteFindings {
   servicesListed: string[];
   manualProcessSignals: string[];
@@ -28,6 +36,7 @@ export interface AutomationOpportunity {
   arisoftService: ArisoftService;
   explanation: string;
   evidenceSource: string;
+  isBestMatch: boolean;
 }
 
 export interface CompanyAnalysis {
@@ -39,6 +48,7 @@ export interface CompanyAnalysis {
   companySummary: string;
   estimatedSizeSignal: string | null;
   contact: CompanyAnalysisContact;
+  decisionMakerContacts: DecisionMakerContact[];
   websiteFindings: CompanyWebsiteFindings;
   automationOpportunities: AutomationOpportunity[];
   fitScore: number;
@@ -90,6 +100,7 @@ How to research - work through all of these steps, not just whichever one gives 
 4. Look beyond the company's own site too. Search for news mentions, reviews, LinkedIn presence, and industry directory listings to cross-check what the website claims and to fill in gaps the website does not cover (size, founding year, recent developments). If something looks ambiguous or off, search again to confirm or correct it rather than reporting a guess as fact.
 5. From all of that, note: services offered, concrete signs of manual processes (quote-request forms instead of live tracking, PDF-only downloads, phone-only contact, no customer portal), open vacancies (especially "logistics coordinator," "planner/dispatcher," "customer service," "administratie" - these usually signal manual bottlenecks), any named tools or software mentioned, contact details, and size signals (employee count, fleet size, number of locations, founding year).
 6. Also investigate the company's internal technical capability. Look for evidence of software developers, engineers, IT teams, automation teams, data teams, CTOs, Heads of Engineering, Heads of IT, or similar technical roles. Check current and recent vacancies, LinkedIn presence, company pages, and the company's own website for evidence that it develops software or automation internally. Distinguish between basic IT support and actual software development or automation capability. A company having basic IT support does not automatically make it a poor fit. A company with a substantial internal engineering or automation team is generally a weaker Arisoft prospect because it may prefer to build automation internally. A company with little or no internal development capability is generally a stronger prospect because it is more likely to need an external automation agency.
+7. Identify specific people at the company who could plausibly act as a decision maker for buying an external automation service: owners, founders, (co-)directors, general managers, operations managers, heads of logistics/planning, or similar senior operational roles. Check the company's own team/about/leadership page, LinkedIn (the company page and any linked employee profiles), staff directories, and press mentions. Do not stop after one search; try the company name plus "team," plus "directeur," plus "LinkedIn," and similar variations before concluding no one can be found. For each person found, capture their name, their role or title, and the most direct contact info you can actually find or confidently construct: a personal or role-based email address, a phone number, or both. Only include an email you actually found, or one you can construct with clear evidence of the company's email pattern (for example, other known addresses at the same domain following firstname@domain or firstname.lastname@domain) - never guess an address with no supporting evidence. If you cannot identify at least one named decision maker with reasonable confidence after a genuine effort, return an empty list rather than inventing a name or title. Aim for up to three of the most relevant people; do not pad the list with names that are not plausibly decision makers.
 
 Reasoning, not template-filling:
 This is an analysis, not a form to fill in with plausible-sounding text. For every judgment you make (industry subsegment, size signal, automation opportunity, technical capability, and fit score), use something specific you actually found during research whenever possible.
@@ -99,6 +110,8 @@ Prioritize automation opportunities that are directly supported by something spe
 Clearly distinguish between confirmed and unconfirmed opportunities. If a process is directly supported by evidence, treat it as evidence-backed. If it is not explicitly confirmed but is strongly suggested by the company's characteristics, it can still be included as a plausible opportunity, but make it clear in researchNotes that the specific process is unconfirmed and should be validated during a discovery call.
 
 The goal is to identify where Arisoft could realistically create value, while also considering whether the company is likely to buy that capability from an external agency. One to three strong opportunities is usually enough, but include additional relevant opportunities when the company's characteristics justify them. Map each opportunity to exactly one of Arisoft's six services above.
+
+Among the automation opportunities you return, pick the single one that is the strongest, most evidence-backed match for this company right now and mark it isBestMatch: true. Mark every other opportunity isBestMatch: false. If you return only one opportunity, mark it true. Base the choice on the same criteria as the fit score: how much real value it would create and how directly the evidence supports it, not simply which one is listed first.
 
 Fit score:
 Score the fit from 1 (little to no evidence that the company is a good Arisoft prospect) to 5 (strong opportunity and strong likelihood that the company would benefit from an external automation agency), with one sentence explaining the score.
@@ -150,6 +163,21 @@ const OUTPUT_SCHEMA = {
       required: ["generalEmail", "phone", "namedContact"],
       additionalProperties: false,
     },
+    decisionMakerContacts: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          role: { type: ["string", "null"] },
+          email: { type: ["string", "null"] },
+          phone: { type: ["string", "null"] },
+          evidenceSource: { type: ["string", "null"] },
+        },
+        required: ["name", "role", "email", "phone", "evidenceSource"],
+        additionalProperties: false,
+      },
+    },
     websiteFindings: {
       type: "object",
       properties: {
@@ -170,8 +198,9 @@ const OUTPUT_SCHEMA = {
           arisoftService: { type: "string", enum: ARISOFT_SERVICES },
           explanation: { type: "string" },
           evidenceSource: { type: "string" },
+          isBestMatch: { type: "boolean" },
         },
-        required: ["opportunity", "arisoftService", "explanation", "evidenceSource"],
+        required: ["opportunity", "arisoftService", "explanation", "evidenceSource", "isBestMatch"],
         additionalProperties: false,
       },
     },
@@ -189,6 +218,7 @@ const OUTPUT_SCHEMA = {
     "companySummary",
     "estimatedSizeSignal",
     "contact",
+    "decisionMakerContacts",
     "websiteFindings",
     "automationOpportunities",
     "fitScore",
@@ -250,6 +280,14 @@ function readEnum<T extends string>(record: Record<string, unknown>, key: string
   return value as T;
 }
 
+function readBoolean(record: Record<string, unknown>, key: string): boolean {
+  const value = record[key];
+  if (typeof value !== "boolean") {
+    throw new Error(FORMAT_ERROR);
+  }
+  return value;
+}
+
 function parseContact(value: unknown): CompanyAnalysisContact {
   const record = readRecord(value);
   return {
@@ -257,6 +295,22 @@ function parseContact(value: unknown): CompanyAnalysisContact {
     phone: readNullableString(record, "phone"),
     namedContact: readNullableString(record, "namedContact"),
   };
+}
+
+function parseDecisionMakerContacts(value: unknown): DecisionMakerContact[] {
+  if (!Array.isArray(value)) {
+    throw new Error(FORMAT_ERROR);
+  }
+  return value.map((item) => {
+    const record = readRecord(item);
+    return {
+      name: readRequiredString(record, "name"),
+      role: readNullableString(record, "role"),
+      email: readNullableString(record, "email"),
+      phone: readNullableString(record, "phone"),
+      evidenceSource: readNullableString(record, "evidenceSource"),
+    };
+  });
 }
 
 function parseWebsiteFindings(value: unknown): CompanyWebsiteFindings {
@@ -280,6 +334,7 @@ function parseAutomationOpportunities(value: unknown): AutomationOpportunity[] {
       arisoftService: readEnum(record, "arisoftService", ARISOFT_SERVICES),
       explanation: readRequiredString(record, "explanation"),
       evidenceSource: readRequiredString(record, "evidenceSource"),
+      isBestMatch: readBoolean(record, "isBestMatch"),
     };
   });
 }
@@ -306,7 +361,7 @@ export async function analyzeCompany(input: AnalyzeCompanyInput): Promise<Compan
     instructions: SYSTEM_PROMPT,
     input: `<company>\nName: ${input.companyName ?? "not provided"}\nKVK number: ${input.kvkNumber ?? "not provided"}\n</company>`,
     tools: [{ type: "web_search" }],
-    max_output_tokens: 8192,
+    max_output_tokens: 10000,
     text: {
       format: { type: "json_schema", name: "company_analysis", schema: OUTPUT_SCHEMA, strict: true },
     },
@@ -347,6 +402,7 @@ export async function analyzeCompany(input: AnalyzeCompanyInput): Promise<Compan
     companySummary: readRequiredString(record, "companySummary"),
     estimatedSizeSignal: readNullableString(record, "estimatedSizeSignal"),
     contact: parseContact(record.contact),
+    decisionMakerContacts: parseDecisionMakerContacts(record.decisionMakerContacts),
     websiteFindings: parseWebsiteFindings(record.websiteFindings),
     automationOpportunities: parseAutomationOpportunities(record.automationOpportunities),
     fitScore: parseFitScore(record),

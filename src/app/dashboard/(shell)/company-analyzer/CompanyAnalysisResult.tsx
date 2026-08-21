@@ -142,6 +142,40 @@ export function CompanyAnalysisResult({ result }: { result: CompanyAnalysis }) {
 
       <hr className="border-border" />
 
+      <div>
+        <h3 className="text-sm font-medium text-foreground">Decision maker contacts</h3>
+        {result.decisionMakerContacts.length > 0 ? (
+          <div className="mt-3 space-y-3">
+            {result.decisionMakerContacts.map((contact, index) => (
+              <div key={index} className="rounded-lg border border-border p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-foreground">{contact.name}</p>
+                  {contact.role && (
+                    <span className="rounded-full border border-border px-3 py-1 text-xs text-muted">
+                      {contact.role}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-2 text-sm text-body">
+                  {contact.email ?? <span className="text-muted">No email found</span>}
+                  {contact.phone ? ` · ${contact.phone}` : ""}
+                </p>
+                {contact.evidenceSource && (
+                  <p className="mt-2 text-xs text-muted">Source: {contact.evidenceSource}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-muted">No decision maker contacts identified.</p>
+        )}
+        <p className="mt-2 text-xs text-muted">
+          Save this company first, then add any of these on its page under Contact persons.
+        </p>
+      </div>
+
+      <hr className="border-border" />
+
       <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <ListSection label="Services listed" items={result.websiteFindings.servicesListed} />
         <ListSection label="Manual process signals" items={result.websiteFindings.manualProcessSignals} />
@@ -156,9 +190,19 @@ export function CompanyAnalysisResult({ result }: { result: CompanyAnalysis }) {
         {result.automationOpportunities.length > 0 ? (
           <div className="mt-3 space-y-3">
             {result.automationOpportunities.map((opportunity, index) => (
-              <div key={index} className="rounded-lg border border-border p-4">
+              <div
+                key={index}
+                className={`rounded-lg border p-4 ${opportunity.isBestMatch ? "border-primary" : "border-border"}`}
+              >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-medium text-foreground">{opportunity.opportunity}</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {opportunity.opportunity}
+                    {opportunity.isBestMatch && (
+                      <span className="ml-2 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                        Best fit
+                      </span>
+                    )}
+                  </p>
                   <span className="rounded-full border border-border px-3 py-1 text-xs text-muted">
                     {opportunity.arisoftService}
                   </span>

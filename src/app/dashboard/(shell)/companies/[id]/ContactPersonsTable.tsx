@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ContactPersonRecord } from "@/lib/companies/types";
+import type { DecisionMakerContact } from "@/lib/companyAnalyzer/analyzeCompany";
 import { EMAIL_PREFILL_STORAGE_KEY, type EmailHandoffMessage } from "@/lib/companyAnalyzer/emailHandoff";
 import { usePagination } from "../../usePagination";
 import { Pagination } from "../../Pagination";
@@ -21,16 +22,52 @@ const EMPTY_FORM: ContactFormState = { name: "", role: "", email: "", phone: "" 
 export function ContactPersonsTable({
   companyId,
   initialContacts,
+  suggestedContacts = [],
 }: {
   companyId: string;
   initialContacts: ContactPersonRecord[];
+  suggestedContacts?: DecisionMakerContact[];
 }) {
   const [contacts, setContacts] = useState<ContactPersonRecord[]>(initialContacts);
   const [editingId, setEditingId] = useState<string | "new" | null>(null);
   const [form, setForm] = useState<ContactFormState>(EMPTY_FORM);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [addingEmail, setAddingEmail] = useState<string | null>(null);
   const { page, setPage, totalPages, pageItems } = usePagination(contacts, 10);
+
+  const existingEmails = new Set(contacts.map((contact) => contact.email.toLowerCase()));
+  const addableSuggestions = suggestedContacts.filter(
+    (suggested) => suggested.email && !existingEmails.has(suggested.email.toLowerCase()),
+  );
+
+  async function handleAddSuggested(suggested: DecisionMakerContact) {
+    if (!suggested.email) return;
+    setAddingEmail(suggested.email);
+    setError("");
+    try {
+      const res = await fetch(`/api/dashboard/companies/${companyId}/contacts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: suggested.name,
+          role: suggested.role,
+          email: suggested.email,
+          phone: suggested.phone,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Failed to add contact.");
+      }
+      setContacts((prev) => [data.contact, ...prev]);
+      setPage(1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add contact.");
+    } finally {
+      setAddingEmail(null);
+    }
+  }
 
   function startEdit(contact: ContactPersonRecord) {
     setEditingId(contact.id);
@@ -130,6 +167,35 @@ export function ContactPersonsTable({
           </button>
         )}
       </div>
+
+      {addableSuggestions.length > 0 && (
+        <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted">Suggested from analysis</p>
+          {addableSuggestions.map((suggested) => (
+            <div
+              key={suggested.email}
+              className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-2 first:border-t-0 first:pt-0"
+            >
+              <div>
+                <p className="text-sm font-medium text-foreground">{suggested.name}</p>
+                <p className="text-xs text-muted">
+                  {suggested.role ? `${suggested.role} · ` : ""}
+                  {suggested.email}
+                  {suggested.phone ? ` · ${suggested.phone}` : ""}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleAddSuggested(suggested)}
+                disabled={addingEmail === suggested.email}
+                className="shrink-0 rounded-full border border-primary px-4 py-1.5 text-xs font-medium text-primary transition hover:bg-surface disabled:opacity-60"
+              >
+                {addingEmail === suggested.email ? "Adding..." : "Add"}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {contacts.length === 0 && editingId !== "new" && <p className="text-sm text-muted">No contact persons yet.</p>}
 

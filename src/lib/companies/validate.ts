@@ -6,6 +6,7 @@ import {
   type CompanyAnalysis,
   type CompanyAnalysisContact,
   type CompanyWebsiteFindings,
+  type DecisionMakerContact,
   type WebsiteConfidence,
 } from "@/lib/companyAnalyzer/analyzeCompany";
 import { isValidEmail } from "@/lib/dashboard/validate";
@@ -68,6 +69,18 @@ function readEnum<T extends string>(
   return value as T;
 }
 
+// Absent (undefined) defaults rather than errors, so analyses saved before
+// this field existed can still be loaded and re-saved without an error.
+function readBoolean(record: Record<string, unknown>, key: string, errors: string[], defaultValue: boolean): boolean {
+  const value = record[key];
+  if (value === undefined) return defaultValue;
+  if (typeof value !== "boolean") {
+    errors.push(`Field "${key}" must be true or false.`);
+    return defaultValue;
+  }
+  return value;
+}
+
 function parseContact(value: unknown, errors: string[]): CompanyAnalysisContact {
   const record = readRecord(value);
   if (!record) {
@@ -79,6 +92,31 @@ function parseContact(value: unknown, errors: string[]): CompanyAnalysisContact 
     phone: readNullableString(record, "phone", errors),
     namedContact: readNullableString(record, "namedContact", errors),
   };
+}
+
+// Absent (undefined) defaults to an empty list rather than an error, so
+// analyses saved before this field existed can still be loaded and
+// re-saved without one.
+function parseDecisionMakerContacts(value: unknown, errors: string[]): DecisionMakerContact[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    errors.push('Field "decisionMakerContacts" must be a list.');
+    return [];
+  }
+  return value.map((item) => {
+    const record = readRecord(item);
+    if (!record) {
+      errors.push("Each decision maker contact must be an object.");
+      return { name: "", role: null, email: null, phone: null, evidenceSource: null };
+    }
+    return {
+      name: readRequiredString(record, "name", errors),
+      role: readNullableString(record, "role", errors),
+      email: readNullableString(record, "email", errors),
+      phone: readNullableString(record, "phone", errors),
+      evidenceSource: readNullableString(record, "evidenceSource", errors),
+    };
+  });
 }
 
 function parseWebsiteFindings(value: unknown, errors: string[]): CompanyWebsiteFindings {
@@ -109,6 +147,7 @@ function parseAutomationOpportunities(value: unknown, errors: string[]): Automat
         arisoftService: ARISOFT_SERVICES[0] as ArisoftService,
         explanation: "",
         evidenceSource: "",
+        isBestMatch: false,
       };
     }
     return {
@@ -116,6 +155,7 @@ function parseAutomationOpportunities(value: unknown, errors: string[]): Automat
       arisoftService: readEnum(record, "arisoftService", ARISOFT_SERVICES, errors),
       explanation: readRequiredString(record, "explanation", errors),
       evidenceSource: readRequiredString(record, "evidenceSource", errors),
+      isBestMatch: readBoolean(record, "isBestMatch", errors, false),
     };
   });
 }
@@ -146,6 +186,7 @@ export function parseCompanyAnalysisInput(value: unknown): ParseResult<CompanyAn
     companySummary: readRequiredString(record, "companySummary", errors),
     estimatedSizeSignal: readNullableString(record, "estimatedSizeSignal", errors),
     contact: parseContact(record.contact, errors),
+    decisionMakerContacts: parseDecisionMakerContacts(record.decisionMakerContacts, errors),
     websiteFindings: parseWebsiteFindings(record.websiteFindings, errors),
     automationOpportunities: parseAutomationOpportunities(record.automationOpportunities, errors),
     fitScore: parseFitScore(record, errors),

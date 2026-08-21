@@ -39,7 +39,9 @@ export function buildCompanyReportHtml(result: CompanyAnalysis, siteUrl: string)
             (opportunity) => `
         <div class="opportunity">
           <div class="opportunity-header">
-            <span class="opportunity-title">${escapeHtml(opportunity.opportunity)}</span>
+            <span class="opportunity-title">${escapeHtml(opportunity.opportunity)}${
+              opportunity.isBestMatch ? ' <span class="tag best">Best fit</span>' : ""
+            }</span>
             <span class="tag">${escapeHtml(opportunity.arisoftService)}</span>
           </div>
           <p>${escapeHtml(opportunity.explanation)}</p>
@@ -48,6 +50,26 @@ export function buildCompanyReportHtml(result: CompanyAnalysis, siteUrl: string)
           )
           .join("")
       : '<p class="muted">No opportunities identified.</p>';
+
+  const decisionMakerContacts = result.decisionMakerContacts ?? [];
+  const decisionMakersHtml =
+    decisionMakerContacts.length > 0
+      ? decisionMakerContacts
+          .map(
+            (contact) => `
+        <div class="opportunity">
+          <div class="opportunity-header">
+            <span class="opportunity-title">${escapeHtml(contact.name)}</span>
+            ${contact.role ? `<span class="tag">${escapeHtml(contact.role)}</span>` : ""}
+          </div>
+          <p>${contact.email ? escapeHtml(contact.email) : '<span class="muted">No email found</span>'}${
+            contact.phone ? ` &middot; ${escapeHtml(contact.phone)}` : ""
+          }</p>
+          ${contact.evidenceSource ? `<p class="muted small">Source: ${escapeHtml(contact.evidenceSource)}</p>` : ""}
+        </div>`,
+          )
+          .join("")
+      : '<p class="muted">No decision maker contacts identified.</p>';
 
   const analysisJson = JSON.stringify(result);
   // GET, not POST: the session cookie is SameSite=Lax, so it's only sent on
@@ -81,6 +103,7 @@ export function buildCompanyReportHtml(result: CompanyAnalysis, siteUrl: string)
   .opportunity-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
   .opportunity-title { font-weight: 500; font-size: 14px; }
   .tag { border: 1px solid #e5e7eb; border-radius: 999px; padding: 2px 10px; font-size: 12px; color: #6b7280; }
+  .tag.best { border-color: #2563eb; color: #2563eb; background: #eff6ff; }
   .cta { border: 1px solid #2563eb; background: #eff6ff; border-radius: 12px; padding: 16px; margin-top: 24px; }
   .cta p { margin: 0 0 12px; font-size: 13px; color: #4b5563; }
   button { background: #2563eb; color: #ffffff; border: none; border-radius: 999px; padding: 10px 20px; font-size: 14px; font-weight: 500; cursor: pointer; }
@@ -102,6 +125,13 @@ export function buildCompanyReportHtml(result: CompanyAnalysis, siteUrl: string)
       ${renderField("General email", result.contact.generalEmail)}
       ${renderField("Phone", result.contact.phone)}
       ${renderField("Named contact", result.contact.namedContact)}
+    </div>
+
+    <hr />
+
+    <div class="field">
+      <div class="label">Decision maker contacts</div>
+      ${decisionMakersHtml}
     </div>
 
     <hr />

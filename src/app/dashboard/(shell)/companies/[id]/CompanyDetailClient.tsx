@@ -18,7 +18,11 @@ export function CompanyDetailClient({
 }) {
   return (
     <div className="space-y-8">
-      <ContactPersonsTable companyId={companyId} initialContacts={initialContacts} />
+      <ContactPersonsTable
+        companyId={companyId}
+        initialContacts={initialContacts}
+        suggestedContacts={initialCompany.analysis.decisionMakerContacts ?? []}
+      />
       <EmailsTable emails={initialEmails} />
       <CompanyAnalysisEditor companyId={companyId} initialAnalysis={initialCompany.analysis} />
     </div>
