@@ -75,9 +75,42 @@ For each person (up to 3):
 - Anything ambiguous, contradictory, or uncertain that the analyst should weigh carefully.
 `;
 
+const REASONING_CONTEXT_VALUES = ["auto", "current_turn", "all_turns"] as const;
+type ReasoningContext = (typeof REASONING_CONTEXT_VALUES)[number];
+
+const REASONING_EFFORT_VALUES = ["none", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
+type ReasoningEffort = (typeof REASONING_EFFORT_VALUES)[number];
+
+// Both only relevant for reasoning-capable models (e.g. gpt-5.x, o-series) -
+// these params are rejected by non-reasoning models like gpt-4o, so each is
+// only sent when explicitly set. Some reasoning model families default
+// context to "all_turns", which re-sends every earlier turn's full reasoning
+// as input on each subsequent turn; for a multi-turn web_search research call
+// that compounds fast. Setting OPENAI_RESEARCH_REASONING_CONTEXT=current_turn
+// stops that compounding. OPENAI_RESEARCH_REASONING_EFFORT lowers how much
+// reasoning the model does per turn in the first place.
+function readReasoningContext(): ReasoningContext | undefined {
+  const value = process.env.OPENAI_RESEARCH_REASONING_CONTEXT;
+  return (REASONING_CONTEXT_VALUES as readonly string[]).includes(value ?? "")
+    ? (value as ReasoningContext)
+    : undefined;
+}
+
+function readReasoningEffort(): ReasoningEffort | undefined {
+  const value = process.env.OPENAI_RESEARCH_REASONING_EFFORT;
+  return (REASONING_EFFORT_VALUES as readonly string[]).includes(value ?? "")
+    ? (value as ReasoningEffort)
+    : undefined;
+}
+
 export async function researchCompany(input: AnalyzeCompanyInput): Promise<string> {
   const client = getOpenAIClient();
   const model = process.env.OPENAI_ANALYZER_MODEL || "gpt-4o";
+  const reasoningContext = readReasoningContext();
+  const reasoningEffort = readReasoningEffort();
+  const reasoning = reasoningContext || reasoningEffort
+    ? { ...(reasoningContext ? { context: reasoningContext } : {}), ...(reasoningEffort ? { effort: reasoningEffort } : {}) }
+    : undefined;
 
   const response = await client.responses.create({
     model,
@@ -85,6 +118,7 @@ export async function researchCompany(input: AnalyzeCompanyInput): Promise<strin
     input: `<company>\nName: ${input.companyName ?? "not provided"}\nKVK number: ${input.kvkNumber ?? "not provided"}\n</company>`,
     tools: [{ type: "web_search" }],
     max_output_tokens: 8192,
+    ...(reasoning ? { reasoning } : {}),
   });
 
   console.log("[companyAnalyzer] researchCompany usage:", {
