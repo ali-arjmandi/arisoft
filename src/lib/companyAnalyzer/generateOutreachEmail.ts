@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getOpenAIClient } from "@/lib/openai/client";
 import type { CompanyAnalysis } from "@/lib/companyAnalyzer/analyzeCompany";
 import {
   GENERATED_EMAIL_SCHEMA,
@@ -71,12 +71,7 @@ export async function generateOutreachEmail(
   companyId?: string,
   options?: GenerateOutreachEmailOptions,
 ): Promise<GeneratedEmailContent> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error("AI generation is not configured.");
-  }
-
-  const client = new OpenAI({ apiKey });
+  const client = getOpenAIClient();
   const model = process.env.OPENAI_COMPANY_EMAIL_MODEL || "gpt-4o";
   const systemPrompt = options?.genericGreeting ? SYSTEM_PROMPT + GENERIC_GREETING_INSTRUCTION : SYSTEM_PROMPT;
 
@@ -95,6 +90,15 @@ export async function generateOutreachEmail(
       // to keep this call's input lean.
       { role: "user", content: JSON.stringify({ ...analysis, researchBrief: undefined }) },
     ],
+  });
+
+  console.log("[companyAnalyzer] generateOutreachEmail usage:", {
+    company: analysis.companyName,
+    companyId,
+    model,
+    promptTokens: response.usage?.prompt_tokens,
+    completionTokens: response.usage?.completion_tokens,
+    totalTokens: response.usage?.total_tokens,
   });
 
   const message = response.choices[0]?.message;

@@ -1,4 +1,5 @@
-import OpenAI from "openai";
+import { getOpenAIClient } from "@/lib/openai/client";
+import { sleep } from "@/lib/sleep";
 import { researchCompany } from "./researchCompany";
 
 export type WebsiteConfidence = "high" | "medium" | "low" | "not_found";
@@ -337,13 +338,8 @@ function parseFitScore(record: Record<string, unknown>): number {
 
 type AnalystOutput = Omit<CompanyAnalysis, "researchBrief">;
 
-async function analyzeResearchBrief(brief: string): Promise<AnalystOutput> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error("AI generation is not configured.");
-  }
-
-  const client = new OpenAI({ apiKey });
+async function analyzeResearchBrief(brief: string, input: AnalyzeCompanyInput): Promise<AnalystOutput> {
+  const client = getOpenAIClient();
   const model = process.env.OPENAI_ANALYST_MODEL || process.env.OPENAI_ANALYZER_MODEL || "gpt-4o";
 
   const response = await client.responses.create({
@@ -354,6 +350,14 @@ async function analyzeResearchBrief(brief: string): Promise<AnalystOutput> {
     text: {
       format: { type: "json_schema", name: "company_analysis", schema: OUTPUT_SCHEMA, strict: true },
     },
+  });
+
+  console.log("[companyAnalyzer] analyzeResearchBrief usage:", {
+    company: input.companyName ?? input.kvkNumber ?? "unknown",
+    model,
+    inputTokens: response.usage?.input_tokens,
+    outputTokens: response.usage?.output_tokens,
+    totalTokens: response.usage?.total_tokens,
   });
 
   if (response.error) {
@@ -409,6 +413,10 @@ async function analyzeResearchBrief(brief: string): Promise<AnalystOutput> {
 // working unchanged.
 export async function analyzeCompany(input: AnalyzeCompanyInput): Promise<CompanyAnalysis> {
   const brief = await researchCompany(input);
-  const analysis = await analyzeResearchBrief(brief);
+  // Spaces out these two token-heavy calls so their usage doesn't stack in
+  // the same rolling TPM window (see src/lib/companyQueue/processing.ts for
+  // why this pipeline is prone to bursting an org's tokens-per-minute limit).
+  await sleep(Number(process.env.OPENAI_CALL_SPACING_MS) || 6000);
+  const analysis = await analyzeResearchBrief(brief, input);
   return { ...analysis, researchBrief: brief };
 }

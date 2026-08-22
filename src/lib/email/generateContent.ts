@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getOpenAIClient } from "@/lib/openai/client";
 import {
   GENERATED_EMAIL_SCHEMA,
   parseGeneratedEmailContent,
@@ -29,12 +29,7 @@ Fields:
 Base every field on the brief below. Where the brief leaves something unspecified, make a reasonable choice that stays consistent with the rest of the email.`;
 
 export async function generateEmailContent(brief: string): Promise<GeneratedEmailContent> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error("AI generation is not configured.");
-  }
-
-  const client = new OpenAI({ apiKey });
+  const client = getOpenAIClient();
   const model = process.env.OPENAI_MODEL || "gpt-4o";
 
   const response = await client.chat.completions.create({

@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getOpenAIClient } from "@/lib/openai/client";
 import type { AnalyzeCompanyInput } from "./analyzeCompany";
 
 const RESEARCH_SYSTEM_PROMPT = `You are a research analyst gathering raw intelligence on a company for Arisoft, an AI automation agency based in Delft, Netherlands, so a second analyst can later assess it as a sales prospect. Your job is ONLY to research and report findings. Do not score, score fit, recommend services, or draw conclusions about whether this company is a good prospect. Another agent will do that using your notes. Just dig deep and report what you find, clearly and completely.
@@ -76,12 +76,7 @@ For each person (up to 3):
 `;
 
 export async function researchCompany(input: AnalyzeCompanyInput): Promise<string> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error("AI generation is not configured.");
-  }
-
-  const client = new OpenAI({ apiKey });
+  const client = getOpenAIClient();
   const model = process.env.OPENAI_ANALYZER_MODEL || "gpt-4o";
 
   const response = await client.responses.create({
@@ -90,6 +85,14 @@ export async function researchCompany(input: AnalyzeCompanyInput): Promise<strin
     input: `<company>\nName: ${input.companyName ?? "not provided"}\nKVK number: ${input.kvkNumber ?? "not provided"}\n</company>`,
     tools: [{ type: "web_search" }],
     max_output_tokens: 8192,
+  });
+
+  console.log("[companyAnalyzer] researchCompany usage:", {
+    company: input.companyName ?? input.kvkNumber ?? "unknown",
+    model,
+    inputTokens: response.usage?.input_tokens,
+    outputTokens: response.usage?.output_tokens,
+    totalTokens: response.usage?.total_tokens,
   });
 
   if (response.error) {

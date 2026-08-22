@@ -5,6 +5,7 @@ import { createGeneratedEmail } from "@/lib/companies/emails";
 import type { CompanyRecord, ContactPersonRecord } from "@/lib/companies/types";
 import { content as defaultContent } from "@/lib/email/content";
 import { ALLOWED_SENDERS } from "@/lib/email/senders";
+import { sleep } from "@/lib/sleep";
 import { claimNextBatch, markQueueItemDone, markQueueItemFailed } from "./queue";
 import { getQueueState, releaseTickLock, tryAcquireTickLock } from "./state";
 import type { GenerateEmailsMode } from "./status";
@@ -63,6 +64,7 @@ export async function processQueueItem(
 ): Promise<void> {
   let analysis: CompanyAnalysis;
   let company: CompanyRecord;
+  let freshlyAnalyzed = false;
 
   try {
     // A retry of a previously-partial success (company already saved, only
@@ -74,6 +76,7 @@ export async function processQueueItem(
       company = existing;
     } else {
       ({ analysis, company } = await analyzeAndSave(item));
+      freshlyAnalyzed = true;
     }
   } catch (error) {
     await markQueueItemFailed(item.id, errorMessage(error));
@@ -89,6 +92,13 @@ export async function processQueueItem(
   }
 
   try {
+    // Only pace this call when a fresh analysis (research + analyst calls)
+    // just ran immediately before it in this same invocation — on the
+    // reused-analysis retry path above, no OpenAI call preceded this one,
+    // so there's nothing to space out against.
+    if (freshlyAnalyzed) {
+      await sleep(Number(process.env.OPENAI_CALL_SPACING_MS) || 6000);
+    }
     // One generation per company, reused for every recipient — a
     // personalized name-by-name greeting isn't safe to reuse across
     // multiple people, so the prompt is told to keep it generic whenever
