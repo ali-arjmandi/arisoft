@@ -26,6 +26,8 @@
   --warning: #ffb547;
   --warning-tint: #fff6da;
   --info-tint: #eaf1ff;
+  --dashboard-card-shadow: 0px 18px 40px rgba(112, 144, 176, 0.12);
+  --dashboard-card-radius: 1.25rem;
 }
 
 /* Dark-mode values, only ever active where a `.dark` ancestor exists (the
@@ -43,6 +45,7 @@
   --danger-tint: #3b1e1c;
   --warning-tint: #3d2f10;
   --info-tint: #172b52;
+  --dashboard-card-shadow: none;
 }
 
 @theme inline {
@@ -63,6 +66,8 @@
   --color-warning: var(--warning);
   --color-warning-tint: var(--warning-tint);
   --color-info-tint: var(--info-tint);
+  --shadow-dashboard-card: var(--dashboard-card-shadow);
+  --radius-dashboard-card: var(--dashboard-card-radius);
   --font-sans: var(--font-poppins);
 }
 

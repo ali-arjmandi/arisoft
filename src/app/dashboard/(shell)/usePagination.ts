@@ -11,5 +11,5 @@ export function usePagination<T>(items: T[], pageSize = 10) {
     [items, currentPage, pageSize],
   );
 
-  return { page: currentPage, setPage, totalPages, pageItems };
+  return { page: currentPage, setPage, totalPages, pageItems, pageSize };
 }

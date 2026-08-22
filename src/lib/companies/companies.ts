@@ -1,6 +1,6 @@
 import { desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
-import { companies, contactPersons, emails } from "@/lib/db/schema";
+import { companies, contactPersons, emails, reportEvents } from "@/lib/db/schema";
 import type { CompanyAnalysis } from "@/lib/companyAnalyzer/analyzeCompany";
 import type { CompanyListItem, CompanyRecord, CompanyWithDetails, ContactPersonRecord } from "./types";
 
@@ -52,13 +52,23 @@ export async function listCompanies(): Promise<CompanyListItem[]> {
       // Only counts rows that have actually been sent — draft/queued rows
       // don't count as "sent" yet.
       emailCount: sql<number>`count(${emails.id}) filter (where ${emails.status} = 'sent')`,
+      // Also decorrelated scalar subqueries, not joins — a second left join
+      // here would fan out against the emails join above, inflating counts.
+      viewCount: sql<number>`(select count(*) from ${reportEvents} where ${reportEvents.companyId} = ${companies.id} and ${reportEvents.type} = 'view')`,
+      downloadCount: sql<number>`(select count(*) from ${reportEvents} where ${reportEvents.companyId} = ${companies.id} and ${reportEvents.type} = 'download')`,
     })
     .from(companies)
     .leftJoin(emails, eq(emails.companyId, companies.id))
     .groupBy(companies.id)
     .orderBy(desc(companies.createdAt));
 
-  return rows.map((row) => ({ ...row, contactCount: Number(row.contactCount), emailCount: Number(row.emailCount) }));
+  return rows.map((row) => ({
+    ...row,
+    contactCount: Number(row.contactCount),
+    emailCount: Number(row.emailCount),
+    viewCount: Number(row.viewCount),
+    downloadCount: Number(row.downloadCount),
+  }));
 }
 
 export async function getCompanyById(id: string): Promise<CompanyRecord | null> {

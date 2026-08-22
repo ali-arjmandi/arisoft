@@ -10,6 +10,8 @@ export interface CompanyListItem {
   kvkNumber: string | null;
   contactCount: number;
   emailCount: number;
+  viewCount: number;
+  downloadCount: number;
   createdAt: Date;
 }
 

@@ -1,11 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import type { ContactPersonRecord } from "@/lib/companies/types";
 import type { DecisionMakerContact } from "@/lib/companyAnalyzer/analyzeCompany";
 import { EMAIL_PREFILL_STORAGE_KEY, type EmailHandoffMessage } from "@/lib/companyAnalyzer/emailHandoff";
 import { usePagination } from "../../usePagination";
 import { Pagination } from "../../Pagination";
+import { useSearchFilter } from "../../useSearchFilter";
+import { SearchInput } from "../../SearchInput";
+import { useSort, type SortValue } from "../../useSort";
+import { SortPills } from "../../SortPills";
+
+const SORT_OPTIONS = [
+  { value: "name", label: "Name" },
+  { value: "role", label: "Role" },
+  { value: "createdAt", label: "Date added" },
+];
+
+const ACCESSORS: Record<string, (contact: ContactPersonRecord) => SortValue> = {
+  name: (contact) => contact.name,
+  role: (contact) => contact.role,
+  createdAt: (contact) => contact.createdAt,
+};
 
 const inputClassName =
   "w-full rounded-lg border border-[#AAAAAA] px-3 py-2 text-sm placeholder-[#888] outline-none transition-colors focus:border-primary";
@@ -34,7 +50,18 @@ export function ContactPersonsTable({
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [addingKey, setAddingKey] = useState<string | null>(null);
-  const { page, setPage, totalPages, pageItems } = usePagination(contacts, 10);
+  const getSearchText = useCallback(
+    (contact: ContactPersonRecord) => `${contact.name} ${contact.email ?? ""} ${contact.role ?? ""}`,
+    [],
+  );
+  const { query, setQuery, filtered } = useSearchFilter(contacts, getSearchText);
+  const { sortKey, direction, toggleSort, sorted } = useSort(filtered, ACCESSORS);
+  const { page, setPage, totalPages, pageItems, pageSize } = usePagination(sorted, 10);
+
+  function handleSort(key: string) {
+    toggleSort(key);
+    setPage(1);
+  }
 
   // A suggestion with an email is deduped by email; one without (found by
   // name only) is deduped by name instead, matching the auto-add logic on
@@ -161,7 +188,7 @@ export function ContactPersonsTable({
   }
 
   return (
-    <div className="space-y-4 rounded-2xl border border-border bg-surface p-8 shadow-sm">
+    <div className="space-y-4 rounded-dashboard-card border border-border bg-surface p-8 shadow-dashboard-card">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">Contact persons</h2>
         {editingId === null && (
@@ -209,6 +236,24 @@ export function ContactPersonsTable({
 
       {contacts.length === 0 && editingId !== "new" && <p className="text-sm text-muted">No contact persons yet.</p>}
 
+      {contacts.length > 0 && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <SearchInput
+            value={query}
+            onChange={(value) => {
+              setQuery(value);
+              setPage(1);
+            }}
+            placeholder="Search contacts..."
+          />
+          <SortPills options={SORT_OPTIONS} activeKey={sortKey} direction={direction} onSort={handleSort} />
+        </div>
+      )}
+
+      {contacts.length > 0 && filtered.length === 0 && (
+        <p className="text-sm text-muted">No contacts match &quot;{query}&quot;.</p>
+      )}
+
       <div className="divide-y divide-border">
         {pageItems.map((contact) =>
           editingId === contact.id ? (
@@ -247,7 +292,13 @@ export function ContactPersonsTable({
         )}
       </div>
 
-      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        totalItems={filtered.length}
+        pageSize={pageSize}
+      />
 
       {editingId === "new" && (
         <ContactForm form={form} setForm={setForm} onCancel={cancelEdit} onSubmit={handleSubmit} saving={saving} />

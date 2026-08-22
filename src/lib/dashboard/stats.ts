@@ -24,6 +24,7 @@ export interface DashboardOverview {
   totalContacts: number;
   totalEmailsSent: number;
   emailsSentLast7Days: number;
+  totalQueuedEmails: number;
   recentCompanies: CompanyListItem[];
   recentEmails: RecentEmail[];
 }
@@ -34,7 +35,15 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
 
   // All of these are specifically "sent" metrics, so draft/queued rows are
   // excluded throughout.
-  const [[companyCountRow], [contactCountRow], [emailCountRow], [recentEmailCountRow], allCompanies, recentEmails] =
+  const [
+    [companyCountRow],
+    [contactCountRow],
+    [emailCountRow],
+    [recentEmailCountRow],
+    [queuedEmailCountRow],
+    allCompanies,
+    recentEmails,
+  ] =
     await Promise.all([
       db.select({ value: count() }).from(companies),
       db.select({ value: count() }).from(contactPersons),
@@ -43,6 +52,7 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
         .select({ value: count() })
         .from(emails)
         .where(and(eq(emails.status, "sent"), gte(emails.sentAt, sevenDaysAgo))),
+      db.select({ value: count() }).from(emails).where(eq(emails.status, "queued")),
       listCompanies(),
       db
         .select({
@@ -69,6 +79,7 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
     totalContacts: Number(contactCountRow.value),
     totalEmailsSent: Number(emailCountRow.value),
     emailsSentLast7Days: Number(recentEmailCountRow.value),
+    totalQueuedEmails: Number(queuedEmailCountRow.value),
     recentCompanies: allCompanies.slice(0, RECENT_LIMIT),
     // sentAt is typed nullable at the column level, but the isNotNull filter
     // above guarantees every row here actually has one.

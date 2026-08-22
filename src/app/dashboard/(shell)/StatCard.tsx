@@ -23,7 +23,7 @@ export function StatCard({
   hint?: string;
 }) {
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-border bg-surface p-6 shadow-sm">
+    <div className="flex items-center gap-4 rounded-dashboard-card border border-border bg-surface p-6 shadow-dashboard-card">
       <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${TONE_CLASSES[tone]}`}>
         <Icon className="h-6 w-6" />
       </div>

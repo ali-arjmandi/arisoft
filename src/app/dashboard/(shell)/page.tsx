@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getDashboardOverview } from "@/lib/dashboard/stats";
 import { StatCard } from "./StatCard";
-import { BuildingIcon, MailIcon, UsersIcon } from "./icons";
+import { BuildingIcon, MailIcon, MailQueueIcon, UsersIcon } from "./icons";
 
 // Reads live data from the database on every request — must not be
 // statically prerendered at build time (build has no DB connection).
@@ -16,7 +16,7 @@ export default async function DashboardOverviewPage() {
 
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard icon={BuildingIcon} label="Companies" value={overview.totalCompanies} tone="primary" />
         <StatCard icon={UsersIcon} label="Contact persons" value={overview.totalContacts} tone="success" />
         <StatCard icon={MailIcon} label="Emails sent (all time)" value={overview.totalEmailsSent} tone="warning" />
@@ -26,10 +26,11 @@ export default async function DashboardOverviewPage() {
           value={overview.emailsSentLast7Days}
           tone="danger"
         />
+        <StatCard icon={MailQueueIcon} label="Emails in queue" value={overview.totalQueuedEmails} tone="warning" />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+        <div className="rounded-dashboard-card border border-border bg-surface p-6 shadow-dashboard-card">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">Recent companies</h2>
             <Link href="/dashboard/companies" className="text-sm font-medium text-primary hover:underline">
@@ -55,7 +56,7 @@ export default async function DashboardOverviewPage() {
           )}
         </div>
 
-        <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+        <div className="rounded-dashboard-card border border-border bg-surface p-6 shadow-dashboard-card">
           <h2 className="text-lg font-semibold text-foreground">Recent emails sent</h2>
           {overview.recentEmails.length === 0 ? (
             <p className="mt-4 text-sm text-muted">No emails sent yet.</p>
