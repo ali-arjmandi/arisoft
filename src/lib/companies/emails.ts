@@ -299,7 +299,13 @@ export async function getEmailSendStats(from: AllowedSender): Promise<EmailSendS
 
   const [row] = await db
     .select({
-      lastSentAt: sql<Date | null>`max(${emails.sentAt})`,
+      // Raw sql fragments bypass drizzle's column-based Date mapping, so
+      // without .mapWith this comes back as the driver's raw timestamptz
+      // string (e.g. "2026-09-28 11:06:49.441+00"), not a Date — silently
+      // breaking every .getTime() call downstream once a row exists.
+      lastSentAt: sql<Date | null>`max(${emails.sentAt})`.mapWith((value: string | null) =>
+        value === null ? null : new Date(value),
+      ),
       sentLastHour: sql<number>`count(*) filter (where ${emails.sentAt} >= ${hourAgo})::int`,
       sentLastDay: sql<number>`count(*) filter (where ${emails.sentAt} >= ${dayAgo})::int`,
     })
