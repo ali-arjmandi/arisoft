@@ -41,6 +41,13 @@ export interface Dictionary {
     heading: string;
     description: string;
   };
+  hsmPromo: {
+    badge: string;
+    heading: string;
+    description: string;
+    stats: { value: string; label: string }[];
+    cta: string;
+  };
   pricing: {
     badge: string;
     heading: string;
@@ -189,6 +196,17 @@ export const dictionary: Record<Locale, Dictionary> = {
     toolsStrip: {
       heading: "Connect the tools you already rely on",
       description: "No rip-and-replace. We plug automation into the systems your team already trusts.",
+    },
+    hsmPromo: {
+      badge: "Free tool by Arisoft",
+      heading: "Looking for a job as a Highly Skilled Migrant?",
+      description:
+        "Arisoft HSM collects open vacancies from every IND recognised sponsor in one search — updated daily, free, no account needed.",
+      stats: [
+        { value: "4,000+", label: "open jobs" },
+        { value: "12,000+", label: "recognised sponsors" },
+      ],
+      cta: "Search jobs",
     },
     pricing: {
       badge: "Pricing",
@@ -364,6 +382,17 @@ export const dictionary: Record<Locale, Dictionary> = {
     toolsStrip: {
       heading: "Koppel de tools die je al gebruikt",
       description: "Geen rigoureuze vervanging. We bouwen automatisering in de systemen die je team al vertrouwt.",
+    },
+    hsmPromo: {
+      badge: "Gratis tool van Arisoft",
+      heading: "Op zoek naar een baan als kennismigrant?",
+      description:
+        "Arisoft HSM bundelt de vacatures van alle door de IND erkende referenten in één zoekopdracht — dagelijks bijgewerkt, gratis en zonder account.",
+      stats: [
+        { value: "4.000+", label: "openstaande vacatures" },
+        { value: "12.000+", label: "erkende referenten" },
+      ],
+      cta: "Zoek vacatures",
     },
     pricing: {
       badge: "Prijzen",

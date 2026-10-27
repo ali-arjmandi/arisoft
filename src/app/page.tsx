@@ -5,6 +5,7 @@ import { Process } from "@/components/Process";
 import { Services } from "@/components/Services";
 import { Approach } from "@/components/Approach";
 import { ToolsStrip } from "@/components/ToolsStrip";
+import { HsmPromo } from "@/components/HsmPromo";
 import { Pricing } from "@/components/Pricing";
 import { FAQ } from "@/components/FAQ";
 import { ContactForm } from "@/components/ContactForm";
@@ -21,6 +22,7 @@ export default function Home() {
         <Services />
         <Approach />
         <ToolsStrip />
+        <HsmPromo />
         <Pricing />
         <FAQ />
         <ContactForm />
