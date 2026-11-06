@@ -1,4 +1,5 @@
 import { Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
+import { BUYER_FONT_FAMILY } from "./fonts";
 import { SELLER } from "./seller";
 import { formatCurrencyEUR, formatInvoiceDate } from "./format";
 import { calculateDueDate } from "./calculations";
@@ -26,6 +27,9 @@ const styles = StyleSheet.create({
   },
   pagePoppins: {
     fontFamily: "Poppins",
+  },
+  buyerText: {
+    fontFamily: BUYER_FONT_FAMILY,
   },
   headerRow: {
     flexDirection: "row",
@@ -185,6 +189,8 @@ export function InvoiceDocument({
   logoSrc = "/images/logo/full-lockup-transparent-blue.png",
 }: InvoiceDocumentProps) {
   const seller = data.seller ?? SELLER;
+  // Stored invoices only: the dashboard form keeps its browser-rendered Poppins.
+  const buyerText = data.kind ? styles.buyerText : undefined;
   const isCreditNote = data.kind === "credit_note";
   const documentName = isCreditNote ? "Credit note" : "Invoice";
   const lines = data.lines ?? [{ description: data.description, amountExclBtw: data.totals.amountExclBtw }];
@@ -226,9 +232,9 @@ export function InvoiceDocument({
           </View>
           <View style={styles.partyColumn}>
             <Text style={styles.partyLabel}>Bill to</Text>
-            <Text style={styles.partyName}>{data.buyerName}</Text>
+            <Text style={[styles.partyName, buyerText]}>{data.buyerName}</Text>
             {data.buyerAddressLines.map((line, index) => (
-              <Text key={index} style={styles.partyLine}>
+              <Text key={index} style={[styles.partyLine, buyerText]}>
                 {line}
               </Text>
             ))}
@@ -242,7 +248,7 @@ export function InvoiceDocument({
           </View>
           {lines.map((line, index) => (
             <View key={index} style={styles.tableRow}>
-              <Text style={styles.tableCellDescription}>{line.description}</Text>
+              <Text style={[styles.tableCellDescription, buyerText]}>{line.description}</Text>
               <Text style={styles.tableCellAmount}>{formatCurrencyEUR(line.amountExclBtw)}</Text>
             </View>
           ))}

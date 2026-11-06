@@ -15,6 +15,8 @@ export interface SendEmailInput {
   attachments?: EmailAttachment[];
   inReplyTo?: string;
   references?: string[];
+  // For a send inside a request with a deadline; nodemailer's defaults run to minutes.
+  timeoutMs?: number;
 }
 
 // The same app password also authenticates IMAP (src/lib/email/inbox.ts).
@@ -35,6 +37,7 @@ export async function sendEmail({
   attachments,
   inReplyTo,
   references,
+  timeoutMs,
 }: SendEmailInput): Promise<void> {
   const appPassword = getMailboxPassword(from);
 
@@ -46,6 +49,7 @@ export async function sendEmail({
       user: from,
       pass: appPassword,
     },
+    ...(timeoutMs ? { connectionTimeout: timeoutMs, greetingTimeout: timeoutMs, socketTimeout: timeoutMs } : {}),
   });
 
   await transporter.sendMail({

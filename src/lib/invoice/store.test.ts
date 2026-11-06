@@ -217,6 +217,78 @@ test("the tick emails once with the PDF, escapes the name, retries a failure, an
   transport.mock.restore();
 });
 
+test("POST sends at once, a repeat sends nothing, and a mail failure still answers 201", { skip }, async () => {
+  process.env.DASHBOARD_SMTP_INFO_APP_PASSWORD = "unused";
+  process.env.ARISOFT_INVOICE_HMAC_SECRET = "test-secret";
+  const { POST } = await import("@/app/api/invoices/route");
+  const { invoiceSignature } = await import("./api");
+  const post = (request: InvoiceRequest) => {
+    const body = JSON.stringify(request);
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    return POST(
+      new Request("https://arisoft.nl/api/invoices", {
+        method: "POST",
+        body,
+        headers: {
+          "x-arisoft-timestamp": timestamp,
+          "x-arisoft-signature": invoiceSignature("test-secret", timestamp, "POST", "/api/invoices", body),
+        },
+      }),
+      { params: Promise.resolve({}) },
+    );
+  };
+
+  let sent = 0;
+  let smtpDown = false;
+  const transport = mock.method(nodemailer, "createTransport", () => ({
+    sendMail: async () => {
+      if (smtpDown) throw new Error("down");
+      sent += 1;
+    },
+  }));
+
+  const request = invoice();
+  const first = await post(request);
+  assert.equal(first.status, 201);
+  assert.equal(sent, 1); // Already gone by the time HSM gets its answer.
+  const again = await post(request);
+  assert.equal(again.status, 200);
+  assert.equal(sent, 1);
+
+  smtpDown = true;
+  const failed = await post(invoice());
+  assert.equal(failed.status, 201);
+  const { id } = (await failed.json()) as { id: string };
+  assert.equal((await emailRows(id))[0].status, "pending");
+
+  // The failed mail gets its next try from the next request that finds it due.
+  smtpDown = false;
+  await db.update(schema.invoiceEmails).set({ nextTryAt: new Date(0) }).where(eq(schema.invoiceEmails.invoiceId, id));
+  await post(invoice());
+  assert.equal(sent, 3);
+  assert.equal((await emailRows(id))[0].status, "sent");
+  transport.mock.restore();
+});
+
+test("a hanging SMTP cannot hold the request past the cap", { skip }, async () => {
+  process.env.DASHBOARD_SMTP_INFO_APP_PASSWORD = "unused";
+  const { sendInvoiceEmailsNow } = await import("./delivery");
+  let release = () => {};
+  const hanging = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const transport = mock.method(nodemailer, "createTransport", () => ({ sendMail: () => hanging }));
+  await store.createInvoice(invoice());
+
+  const started = Date.now();
+  await sendInvoiceEmailsNow(300);
+  assert.ok(Date.now() - started < 3_000);
+
+  release();
+  await new Promise((resolve) => setTimeout(resolve, 100)); // Lets the abandoned send finish before the next test's cleanup.
+  transport.mock.restore();
+});
+
 test("the stored invoice renders to a PDF, credit notes too", { skip }, async () => {
   const { renderInvoicePdf } = await import("./renderInvoicePdf");
   const { invoice: row } = await store.createInvoice(invoice({ buyer: { name: "A <b>Buyer</b>", email: "user@example.com", country: "DE" } }));

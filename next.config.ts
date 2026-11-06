@@ -2,7 +2,11 @@ import type { NextConfig } from "next";
 
 // The server renders invoice PDFs from these files. public/ is served by the
 // CDN, so without this they would not be inside the Lambda.
-const invoicePdfFiles = ["./public/fonts/poppins/*.ttf", "./public/images/logo/full-lockup-transparent-blue.png"];
+const invoicePdfFiles = [
+  "./public/fonts/poppins/*.ttf",
+  "./public/fonts/noto-sans/*.ttf",
+  "./public/images/logo/full-lockup-transparent-blue.png",
+];
 
 const nextConfig: NextConfig = {
   outputFileTracingIncludes: {

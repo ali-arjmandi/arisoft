@@ -1,4 +1,5 @@
 import { invoiceRoute } from "@/lib/invoice/api";
+import { sendInvoiceEmailsNow } from "@/lib/invoice/delivery";
 import { InvoiceRejected, parseInvoiceRequest } from "@/lib/invoice/request";
 import { createInvoice, invoiceResponse } from "@/lib/invoice/store";
 
@@ -12,5 +13,6 @@ function parseBody(body: string): unknown {
 
 export const POST = invoiceRoute<object>(async (body) => {
   const { invoice, created } = await createInvoice(parseInvoiceRequest(parseBody(body)));
+  await sendInvoiceEmailsNow();
   return Response.json(invoiceResponse(invoice), { status: created ? 201 : 200 });
 });

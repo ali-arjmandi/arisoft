@@ -12,6 +12,10 @@ import { OSS_THRESHOLD_CENTS } from "./vatRates";
 const FROM = "info@arisoft.nl";
 // Shorter than the Lambda limit, as the tick's other work runs beside this.
 const BUDGET_MS = 15_000;
+// HSM gives up after 20 seconds, cold start included.
+const REQUEST_BUDGET_MS = 6_000;
+const REQUEST_CAP_MS = 10_000;
+const SMTP_TIMEOUT_MS = 8_000;
 const MAX_ATTEMPTS = 10;
 const RETRY_BASE_MS = 5 * 60 * 1000;
 // A Lambda killed mid-send leaves a claim behind; this frees it. If SMTP had
@@ -66,6 +70,7 @@ async function deliver(invoiceId: string): Promise<void> {
       subject: content.subject,
       html,
       attachments: [...attachments, { filename: `${row.number}.pdf`, content: pdf, contentType: "application/pdf" }],
+      timeoutMs: SMTP_TIMEOUT_MS,
     });
     await db.update(invoiceEmails).set({ status: "sent", sentAt: new Date() }).where(eq(invoiceEmails.invoiceId, invoiceId));
   } catch (error) {
@@ -106,7 +111,7 @@ async function sendVatAlerts(): Promise<number> {
       const content = alertContent(alert);
       const { html, attachments } = renderEmailForSmtp(content);
       const to = process.env.ARISOFT_VAT_ALERT_EMAIL || "a.arjmandi@arisoft.nl";
-      await sendEmail({ to, from: FROM, subject: content.subject, html, attachments });
+      await sendEmail({ to, from: FROM, subject: content.subject, html, attachments, timeoutMs: SMTP_TIMEOUT_MS });
       await db
         .update(vatAlerts)
         .set({ sentAt: new Date() })
@@ -119,11 +124,11 @@ async function sendVatAlerts(): Promise<number> {
   return sent;
 }
 
-// The only place invoice mail leaves from, so a request never waits on SMTP.
-// Catches everything: a failure here must not lose the tick's other results.
-export async function runInvoiceEmailTick(): Promise<{ emails: number; alerts: number } | null> {
+// Sends what is due, oldest first, so a mail that failed earlier gets another
+// try here too. Catches everything: a failure must not fail its caller.
+export async function runInvoiceEmailTick(budgetMs = BUDGET_MS): Promise<{ emails: number; alerts: number } | null> {
   try {
-    const deadline = Date.now() + BUDGET_MS;
+    const deadline = Date.now() + budgetMs;
     const alerts = await sendVatAlerts();
     let emails = 0;
     while (Date.now() < deadline) {
@@ -137,4 +142,17 @@ export async function runInvoiceEmailTick(): Promise<{ emails: number; alerts: n
     console.error("[invoice-email] tick failed", errorCode(error));
     return null;
   }
+}
+
+// System mail goes straight from the request; the outreach queue is for
+// company mail only. A Lambda stops once it has answered, so this runs before
+// the answer. The cap always wins: a slow SMTP leaves the row to be reclaimed,
+// and the invoice is already stored.
+export async function sendInvoiceEmailsNow(capMs = REQUEST_CAP_MS): Promise<void> {
+  let timer: NodeJS.Timeout | undefined;
+  const cap = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, capMs);
+  });
+  await Promise.race([runInvoiceEmailTick(REQUEST_BUDGET_MS), cap]);
+  clearTimeout(timer);
 }

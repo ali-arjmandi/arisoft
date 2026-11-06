@@ -1,6 +1,6 @@
 import path from "node:path";
-import { renderToBuffer } from "@react-pdf/renderer";
-import { registerInvoiceFonts } from "./fonts";
+import { Font, renderToBuffer } from "@react-pdf/renderer";
+import { BUYER_FONT_FAMILY, registerInvoiceFonts } from "./fonts";
 import { InvoiceDocument } from "./InvoiceDocument";
 import { formatInvoiceDate } from "./format";
 import { countryName } from "./request";
@@ -18,14 +18,26 @@ function paymentLines({ kind, payment }: InvoiceRow): string[] {
   return [`Paid${paidOn} via ${provider}. No payment is needed.`, `Payment reference: ${payment.reference}`];
 }
 
-export function invoicePdfData(row: InvoiceRow): InvoiceDocumentData {
+// react-pdf quietly falls back to Helvetica for a glyph the font lacks, which
+// prints other letters. So anything the font cannot print becomes a plain "?".
+// shortcut: Arabic, Chinese and the like print as "?", add their Noto fonts if those buyers come.
+async function buyerTextFilter(): Promise<(text: string) => string> {
+  const fonts = [400, 600].map((fontWeight) => Font.getFont({ fontFamily: BUYER_FONT_FAMILY, fontWeight }));
+  await Promise.all(fonts.map((font) => font.load()));
+  return (text) =>
+    Array.from(text.normalize("NFC"), (character) =>
+      fonts.every((font) => font.data!.hasGlyphForCodePoint(character.codePointAt(0)!)) ? character : "?",
+    ).join("");
+}
+
+export function invoicePdfData(row: InvoiceRow, printable: (text: string) => string): InvoiceDocumentData {
   const { buyer } = row;
   return {
     invoiceNumber: row.number,
     invoiceDate: amsterdamDate(row.issuedAt),
     deliveryDate: null,
-    buyerName: buyer.name ?? buyer.email ?? "Customer",
-    buyerAddressLines: [...(buyer.name && buyer.email ? [buyer.email] : []), countryName(buyer.country)],
+    buyerName: printable(buyer.name ?? buyer.email ?? "Customer"),
+    buyerAddressLines: [...(buyer.name && buyer.email ? [buyer.email] : []), countryName(buyer.country)].map(printable),
     description: "",
     btwRate: Number(row.vatRate),
     totals: {
@@ -36,7 +48,7 @@ export function invoicePdfData(row: InvoiceRow): InvoiceDocumentData {
     kind: row.kind,
     creditsNumber: row.creditsNumber ?? undefined,
     lines: row.lines.map((line) => ({
-      description: line.quantity > 1 ? `${line.quantity} × ${line.description}` : line.description,
+      description: printable(line.quantity > 1 ? `${line.quantity} × ${line.description}` : line.description),
       amountExclBtw: euros(line.amountExclVatCents),
     })),
     paymentLines: paymentLines(row),
@@ -51,7 +63,7 @@ export async function renderInvoicePdf(row: InvoiceRow): Promise<Buffer> {
   registerInvoiceFonts(publicDir);
   return renderToBuffer(
     <InvoiceDocument
-      data={invoicePdfData(row)}
+      data={invoicePdfData(row, await buyerTextFilter())}
       logoSrc={path.join(publicDir, "images/logo/full-lockup-transparent-blue.png")}
     />,
   );
