@@ -1,5 +1,5 @@
 import type { ComponentType, SVGProps } from "react";
-import { AnalyzerIcon, BuildingIcon, HomeIcon, InvoiceIcon, MailIcon, MailQueueIcon, QueueIcon } from "./icons";
+import { AnalyzerIcon, BuildingIcon, HomeIcon, InboxIcon, InvoiceIcon, MailIcon, MailQueueIcon, QueueIcon } from "./icons";
 
 export interface DashboardNavItem {
   href: string;
@@ -44,6 +44,12 @@ export const DASHBOARD_NAV_ITEMS: DashboardNavItem[] = [
     label: "Email",
     subtitle: "Edit the fields below, pick a recipient and sender, then send.",
     icon: MailIcon,
+  },
+  {
+    href: "/dashboard/inbox",
+    label: "Inbox",
+    subtitle: "Emails received by your mailboxes — read and reply to them here.",
+    icon: InboxIcon,
   },
   {
     href: "/dashboard/invoice",

@@ -14,6 +14,9 @@
   "dependencies": {
     "@react-pdf/renderer": "^4.6.1",
     "drizzle-orm": "^0.45.2",
+    "html-to-text": "^10.0.1",
+    "imapflow": "^2.11.0",
+    "mailparser": "^3.14.2",
     "next": "16.3.0",
     "nodemailer": "^9.0.5",
     "openai": "^7.5.0",
@@ -26,6 +29,8 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/html-to-text": "^9.0.4",
+    "@types/mailparser": "^3.9.0",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.1",
     "@types/papaparse": "^5.5.2",

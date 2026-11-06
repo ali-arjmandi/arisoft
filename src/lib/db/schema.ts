@@ -1,4 +1,15 @@
-import { pgTable, uuid, text, timestamp, jsonb, index, boolean, smallint } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  uuid,
+  text,
+  timestamp,
+  jsonb,
+  index,
+  boolean,
+  smallint,
+  integer,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 import type { CompanyAnalysis } from "@/lib/companyAnalyzer/analyzeCompany";
 import type { EmailContent } from "@/lib/email/content";
 import type { AllowedSender } from "@/lib/email/senders";
@@ -176,5 +187,36 @@ export const reportEvents = pgTable(
   (table) => [
     index("report_events_company_id_idx").on(table.companyId),
     index("report_events_company_id_type_idx").on(table.companyId, table.type),
+  ],
+);
+
+// A mirror of the ALLOWED_SENDERS Gmail mailboxes, imported over IMAP by
+// src/lib/email/inbox.ts: received mail and the mailbox's own sent mail, so a
+// conversation can be shown whole. Rows are re-importable, Gmail stays the
+// source of truth. uid is the message's IMAP UID in that mailbox's All Mail
+// folder. Only plain text is kept: mail HTML is untrusted and is never stored
+// or rendered.
+export const inboxMessages = pgTable(
+  "inbox_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    mailbox: text("mailbox").$type<AllowedSender>().notNull(),
+    uid: integer("uid").notNull(),
+    // Gmail's own conversation id (X-GM-THRID).
+    threadId: text("thread_id").notNull(),
+    // Null on the rare message without a Message-ID header; a reply to one
+    // still sends, it just can't be threaded.
+    messageId: text("message_id"),
+    references: jsonb("references").$type<string[]>().notNull().default([]),
+    fromName: text("from_name"),
+    fromAddress: text("from_address"),
+    replyToAddress: text("reply_to_address"),
+    subject: text("subject").notNull(),
+    bodyText: text("body_text").notNull(),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("inbox_messages_mailbox_uid_idx").on(table.mailbox, table.uid),
+    index("inbox_messages_mailbox_thread_id_idx").on(table.mailbox, table.threadId),
   ],
 );

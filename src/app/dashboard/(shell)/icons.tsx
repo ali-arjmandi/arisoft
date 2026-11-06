@@ -44,6 +44,15 @@ export function AnalyzerIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function InboxIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M3 13h5l2 3h4l2-3h5" />
+      <path d="M5.5 5h13L21 13v6H3v-6z" />
+    </Icon>
+  );
+}
+
 export function MailIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <Icon {...props}>

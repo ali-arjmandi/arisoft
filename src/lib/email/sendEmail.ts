@@ -13,14 +13,30 @@ export interface SendEmailInput {
   subject: string;
   html: string;
   attachments?: EmailAttachment[];
+  inReplyTo?: string;
+  references?: string[];
 }
 
-export async function sendEmail({ to, from, subject, html, attachments }: SendEmailInput): Promise<void> {
-  const envVar = APP_PASSWORD_ENV_BY_SENDER[from];
+// The same app password also authenticates IMAP (src/lib/email/inbox.ts).
+export function getMailboxPassword(mailbox: AllowedSender): string {
+  const envVar = APP_PASSWORD_ENV_BY_SENDER[mailbox];
   const appPassword = process.env[envVar];
   if (!appPassword) {
-    throw new Error(`Missing ${envVar} — cannot send as ${from}.`);
+    throw new Error(`Missing ${envVar} — cannot use ${mailbox}.`);
   }
+  return appPassword;
+}
+
+export async function sendEmail({
+  to,
+  from,
+  subject,
+  html,
+  attachments,
+  inReplyTo,
+  references,
+}: SendEmailInput): Promise<void> {
+  const appPassword = getMailboxPassword(from);
 
   const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
@@ -38,5 +54,7 @@ export async function sendEmail({ to, from, subject, html, attachments }: SendEm
     subject,
     html,
     attachments,
+    inReplyTo,
+    references,
   });
 }
