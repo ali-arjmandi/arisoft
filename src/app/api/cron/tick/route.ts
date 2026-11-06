@@ -3,6 +3,7 @@ import { requireCronAuth } from "@/lib/dashboard/cronAuth";
 import { runQueueTick } from "@/lib/companyQueue/processing";
 import { runEmailSendTick } from "@/lib/email/publishTick";
 import { runInboxSyncTick } from "@/lib/email/inbox";
+import { runInvoiceEmailTick } from "@/lib/invoice/delivery";
 
 // The single scheduled entry point that drives both background processors
 // (company queue, email auto-publish) now that neither depends on a
@@ -16,6 +17,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Not authenticated." }, { status: 401 });
   }
 
-  const [queue, email, inbox] = await Promise.all([runQueueTick(), runEmailSendTick(), runInboxSyncTick()]);
-  return NextResponse.json({ ok: true, queue, email, inbox });
+  const [queue, email, inbox, invoices] = await Promise.all([
+    runQueueTick(),
+    runEmailSendTick(),
+    runInboxSyncTick(),
+    runInvoiceEmailTick(),
+  ]);
+  return NextResponse.json({ ok: true, queue, email, inbox, invoices });
 }

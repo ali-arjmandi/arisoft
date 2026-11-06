@@ -176,22 +176,34 @@ const styles = StyleSheet.create({
 interface InvoiceDocumentProps {
   data: InvoiceDocumentData;
   useFallbackFont?: boolean;
+  logoSrc?: string;
 }
 
-export function InvoiceDocument({ data, useFallbackFont }: InvoiceDocumentProps) {
-  const dueDate = calculateDueDate(data.invoiceDate, SELLER.paymentTermDays);
+export function InvoiceDocument({
+  data,
+  useFallbackFont,
+  logoSrc = "/images/logo/full-lockup-transparent-blue.png",
+}: InvoiceDocumentProps) {
+  const seller = data.seller ?? SELLER;
+  const isCreditNote = data.kind === "credit_note";
+  const documentName = isCreditNote ? "Credit note" : "Invoice";
+  const lines = data.lines ?? [{ description: data.description, amountExclBtw: data.totals.amountExclBtw }];
+  const dueDate = calculateDueDate(data.invoiceDate, seller.paymentTermDays);
   const showDeliveryDate = Boolean(data.deliveryDate) && data.deliveryDate !== data.invoiceDate;
 
   return (
-    <Document title={`Invoice ${data.invoiceNumber}`}>
+    <Document title={`${documentName} ${data.invoiceNumber}`}>
       <Page size="A4" style={[styles.page, useFallbackFont ? undefined : styles.pagePoppins]}>
         <View style={styles.headerRow}>
           {/* This is react-pdf's <Image>, not an HTML <img> — it has no alt prop. */}
           {/* eslint-disable-next-line jsx-a11y/alt-text */}
-          <Image src="/images/logo/full-lockup-transparent-blue.png" style={styles.logo} />
+          <Image src={logoSrc} style={styles.logo} />
           <View style={styles.headerRight}>
-            <Text style={styles.invoiceTitle}>INVOICE</Text>
-            <Text style={styles.headerMeta}>Invoice number: {data.invoiceNumber}</Text>
+            <Text style={styles.invoiceTitle}>{documentName.toUpperCase()}</Text>
+            <Text style={styles.headerMeta}>
+              {documentName} number: {data.invoiceNumber}
+            </Text>
+            {data.creditsNumber && <Text style={styles.headerMeta}>Credits invoice: {data.creditsNumber}</Text>}
             <Text style={styles.headerMeta}>Date: {formatInvoiceDate(data.invoiceDate)}</Text>
             {showDeliveryDate && (
               <Text style={styles.headerMeta}>Delivery date: {formatInvoiceDate(data.deliveryDate)}</Text>
@@ -202,15 +214,15 @@ export function InvoiceDocument({ data, useFallbackFont }: InvoiceDocumentProps)
         <View style={styles.partiesRow}>
           <View style={styles.partyColumn}>
             <Text style={styles.partyLabel}>From</Text>
-            <Text style={styles.partyName}>{SELLER.legalName}</Text>
-            {SELLER.addressLines.map((line, index) => (
+            <Text style={styles.partyName}>{seller.legalName}</Text>
+            {seller.addressLines.map((line, index) => (
               <Text key={index} style={styles.partyLine}>
                 {line}
               </Text>
             ))}
-            <Text style={styles.partyLine}>KvK: {SELLER.kvkNumber}</Text>
-            <Text style={styles.partyLine}>BTW: {SELLER.btwNumber}</Text>
-            <Text style={styles.partyLine}>{SELLER.email}</Text>
+            <Text style={styles.partyLine}>KvK: {seller.kvkNumber}</Text>
+            <Text style={styles.partyLine}>BTW: {seller.btwNumber}</Text>
+            <Text style={styles.partyLine}>{seller.email}</Text>
           </View>
           <View style={styles.partyColumn}>
             <Text style={styles.partyLabel}>Bill to</Text>
@@ -228,10 +240,12 @@ export function InvoiceDocument({ data, useFallbackFont }: InvoiceDocumentProps)
             <Text style={[styles.tableCellDescription, styles.tableHeaderText]}>Description</Text>
             <Text style={[styles.tableCellAmount, styles.tableHeaderText]}>Amount excl. BTW</Text>
           </View>
-          <View style={styles.tableRow}>
-            <Text style={styles.tableCellDescription}>{data.description}</Text>
-            <Text style={styles.tableCellAmount}>{formatCurrencyEUR(data.totals.amountExclBtw)}</Text>
-          </View>
+          {lines.map((line, index) => (
+            <View key={index} style={styles.tableRow}>
+              <Text style={styles.tableCellDescription}>{line.description}</Text>
+              <Text style={styles.tableCellAmount}>{formatCurrencyEUR(line.amountExclBtw)}</Text>
+            </View>
+          ))}
         </View>
 
         <View style={styles.totalsBlock}>
@@ -251,16 +265,26 @@ export function InvoiceDocument({ data, useFallbackFont }: InvoiceDocumentProps)
 
         <View style={styles.paymentBlock}>
           <Text style={styles.paymentHeading}>Payment details</Text>
-          <Text style={styles.paymentLine}>IBAN: {SELLER.iban}</Text>
-          <Text style={styles.paymentLine}>Payment terms: Net {SELLER.paymentTermDays} days</Text>
-          {dueDate && <Text style={styles.paymentLine}>Due date: {formatInvoiceDate(dueDate)}</Text>}
-          <Text style={styles.paymentLine}>
-            Please reference invoice number {data.invoiceNumber} with your payment.
-          </Text>
+          {data.paymentLines ? (
+            data.paymentLines.map((line, index) => (
+              <Text key={index} style={styles.paymentLine}>
+                {line}
+              </Text>
+            ))
+          ) : (
+            <>
+              <Text style={styles.paymentLine}>IBAN: {seller.iban}</Text>
+              <Text style={styles.paymentLine}>Payment terms: Net {seller.paymentTermDays} days</Text>
+              {dueDate && <Text style={styles.paymentLine}>Due date: {formatInvoiceDate(dueDate)}</Text>}
+              <Text style={styles.paymentLine}>
+                Please reference invoice number {data.invoiceNumber} with your payment.
+              </Text>
+            </>
+          )}
         </View>
 
         <Text style={styles.pageFooter} fixed>
-          {SELLER.legalName} · KvK {SELLER.kvkNumber} · BTW {SELLER.btwNumber} · {SELLER.website}
+          {seller.legalName} · KvK {seller.kvkNumber} · BTW {seller.btwNumber} · {seller.website}
         </Text>
       </Page>
     </Document>

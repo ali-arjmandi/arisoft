@@ -2,7 +2,7 @@ import type { EmailContent } from "./content";
 
 // "{" is escaped too: renderEmail rejects any leftover {{TOKEN}}, and quoted
 // mail can contain one (e.g. an unfilled {{FIRST_NAME}} from a mail merge).
-function escapeHtml(value: string): string {
+export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")

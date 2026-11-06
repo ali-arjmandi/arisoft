@@ -1,4 +1,32 @@
 import type { BtwRate } from "./btwRates";
+import type { SellerInfo } from "./seller";
+
+export type InvoiceKind = "invoice" | "credit_note";
+// dutch_vat: Dutch rate, normal Dutch return. oss: the buyer's country rate.
+export type VatMode = "dutch_vat" | "oss";
+export type InvoiceEmailStatus = "pending" | "sending" | "sent" | "failed";
+
+export interface StoredBuyer {
+  email?: string;
+  name?: string;
+  country: string;
+}
+
+export interface StoredLine {
+  description: string;
+  quantity: number;
+  // The whole line, not a price per unit.
+  amountInclVatCents: number;
+  amountExclVatCents: number;
+  vatCents: number;
+}
+
+export interface StoredPayment {
+  status: "paid" | "refunded";
+  provider: string;
+  reference: string;
+  paidAt?: string;
+}
 
 export interface InvoiceFormValues {
   invoiceNumber: string;
@@ -24,6 +52,12 @@ export interface InvoiceDocumentData {
   buyerName: string;
   buyerAddressLines: string[];
   description: string;
-  btwRate: BtwRate;
+  btwRate: number;
   totals: InvoiceTotals;
+  // Set for stored invoices only; the dashboard form leaves these out.
+  kind?: InvoiceKind;
+  creditsNumber?: string;
+  lines?: { description: string; amountExclBtw: number }[];
+  paymentLines?: string[];
+  seller?: SellerInfo;
 }

@@ -8,7 +8,10 @@ import {
   boolean,
   smallint,
   integer,
+  numeric,
+  primaryKey,
   uniqueIndex,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import type { CompanyAnalysis } from "@/lib/companyAnalyzer/analyzeCompany";
 import type { EmailContent } from "@/lib/email/content";
@@ -16,6 +19,8 @@ import type { AllowedSender } from "@/lib/email/senders";
 import type { GenerateEmailsMode, QueueItemStatus } from "@/lib/companyQueue/status";
 import type { EmailStatus } from "@/lib/email/status";
 import type { ReportEventType } from "@/lib/reports/reportEventType";
+import type { SellerInfo } from "@/lib/invoice/seller";
+import type { InvoiceEmailStatus, InvoiceKind, StoredBuyer, StoredLine, StoredPayment, VatMode } from "@/lib/invoice/types";
 
 export const companies = pgTable("companies", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -219,4 +224,81 @@ export const inboxMessages = pgTable(
     uniqueIndex("inbox_messages_mailbox_uid_idx").on(table.mailbox, table.uid),
     index("inbox_messages_mailbox_thread_id_idx").on(table.mailbox, table.threadId),
   ],
+);
+
+// Issued invoices and credit notes (src/lib/invoice/store.ts). Rows are never
+// updated: the buyer, seller, lines, rate and VAT mode are copies taken at
+// issue, so a PDF made years later needs nothing that can change. Everything
+// that does change lives in invoice_emails. vat_year is the Amsterdam calendar
+// year of the sale, which can differ from the year in the number when HSM
+// retries across New Year.
+export const invoices = pgTable(
+  "invoices",
+  {
+    id: text("id").primaryKey(),
+    series: text("series").notNull(),
+    number: text("number").notNull().unique(),
+    kind: text("kind").$type<InvoiceKind>().notNull(),
+    idempotencyKey: text("idempotency_key").notNull().unique(),
+    creditsInvoiceId: text("credits_invoice_id").references((): AnyPgColumn => invoices.id),
+    creditsNumber: text("credits_number"),
+    issuedAt: timestamp("issued_at", { withTimezone: true }).notNull(),
+    vatYear: integer("vat_year").notNull(),
+    // numeric, not integer: Finland's rate is 25.5.
+    vatRate: numeric("vat_rate", { precision: 5, scale: 2 }).notNull(),
+    vatMode: text("vat_mode").$type<VatMode>().notNull(),
+    // A sale to an EU buyer outside the Netherlands: counts toward the OSS threshold.
+    euCrossBorder: boolean("eu_cross_border").notNull(),
+    amountExclVatCents: integer("amount_excl_vat_cents").notNull(),
+    vatCents: integer("vat_cents").notNull(),
+    amountInclVatCents: integer("amount_incl_vat_cents").notNull(),
+    buyer: jsonb("buyer").$type<StoredBuyer>().notNull(),
+    seller: jsonb("seller").$type<SellerInfo>().notNull(),
+    lines: jsonb("lines").$type<StoredLine[]>().notNull(),
+    payment: jsonb("payment").$type<StoredPayment>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("invoices_threshold_idx").on(table.vatYear, table.euCrossBorder)],
+);
+
+export const invoiceCounters = pgTable(
+  "invoice_counters",
+  {
+    series: text("series").notNull(),
+    year: integer("year").notNull(),
+    lastNumber: integer("last_number").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.series, table.year] })],
+);
+
+// One row per invoice that should be emailed; /api/cron/tick works through it.
+export const invoiceEmails = pgTable(
+  "invoice_emails",
+  {
+    invoiceId: text("invoice_id")
+      .primaryKey()
+      .references(() => invoices.id),
+    status: text("status").$type<InvoiceEmailStatus>().notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    nextTryAt: timestamp("next_try_at", { withTimezone: true }).notNull().defaultNow(),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+  },
+  (table) => [index("invoice_emails_status_next_try_idx").on(table.status, table.nextTryAt)],
+);
+
+// The €8,000 and €10,000 warnings to the owner, at most one per level and year.
+// scope keeps TEST invoices from ever warning about the real total.
+export const vatAlerts = pgTable(
+  "vat_alerts",
+  {
+    scope: text("scope").$type<"live" | "test">().notNull(),
+    year: integer("year").notNull(),
+    levelCents: integer("level_cents").notNull(),
+    invoiceNumber: text("invoice_number").notNull(),
+    totalCents: integer("total_cents").notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.scope, table.year, table.levelCents] })],
 );
