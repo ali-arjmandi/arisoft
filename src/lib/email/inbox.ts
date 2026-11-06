@@ -8,7 +8,12 @@ import { groupInboxThreads, type InboxThread } from "./inboxThreads";
 import { getMailboxPassword } from "./sendEmail";
 import { ALLOWED_SENDERS, type AllowedSender } from "./senders";
 
-const SYNC_BATCH_SIZE = 25;
+// Each chunk is saved before the next is fetched, and the budget keeps one
+// sync well under Amplify's ~30s request limit, so a slow run still makes
+// progress instead of losing everything to a 504.
+const SYNC_CHUNK_SIZE = 10;
+const SYNC_BUDGET_MS = 15_000;
+const IMAP_CONNECT_TIMEOUT_MS = 8_000;
 // Text parts come first in practice, so a large attachment is cut off here
 // instead of being loaded into a Lambda's memory.
 const MAX_SOURCE_BYTES = 2_000_000;
@@ -46,8 +51,8 @@ export async function toInboxRow(mailbox: AllowedSender, message: FetchMessageOb
   };
 }
 
-// Imports whatever All Mail has that the table doesn't, oldest first, so the
-// same pass covers history and new mail. All Mail rather than INBOX so
+// Imports whatever All Mail has that the table doesn't, newest first, so new
+// mail never waits behind a history import. All Mail rather than INBOX so
 // archived conversations and sent mail are included. Compared as a set rather
 // than a max(uid) cursor so a message Gmail exposes late is never skipped.
 // shortcut: assumes Gmail's UIDVALIDITY never changes, re-import by emptying the table if it does.
@@ -58,6 +63,7 @@ async function syncMailbox(mailbox: AllowedSender): Promise<number> {
     .from(inboxMessages)
     .where(eq(inboxMessages.mailbox, mailbox));
   const known = new Set(stored.map((row) => row.uid));
+  const deadline = Date.now() + SYNC_BUDGET_MS;
 
   const client = new ImapFlow({
     host: "imap.gmail.com",
@@ -65,6 +71,8 @@ async function syncMailbox(mailbox: AllowedSender): Promise<number> {
     secure: true,
     auth: { user: mailbox, pass: getMailboxPassword(mailbox) },
     logger: false,
+    connectionTimeout: IMAP_CONNECT_TIMEOUT_MS,
+    greetingTimeout: IMAP_CONNECT_TIMEOUT_MS,
   });
   await client.connect();
   try {
@@ -74,22 +82,22 @@ async function syncMailbox(mailbox: AllowedSender): Promise<number> {
     const lock = await client.getMailboxLock(path, { readOnly: true });
     try {
       const found = await client.search({ draft: false }, { uid: true });
-      const uids = (found || [])
-        .filter((uid) => !known.has(uid))
-        .sort((a, b) => a - b)
-        .slice(0, SYNC_BATCH_SIZE);
-      if (uids.length === 0) return 0;
+      const uids = (found || []).filter((uid) => !known.has(uid)).sort((a, b) => b - a);
 
-      const messages = await client.fetchAll(
-        uids.join(","),
-        { uid: true, threadId: true, internalDate: true, source: { maxLength: MAX_SOURCE_BYTES } },
-        { uid: true },
-      );
-      const rows = await Promise.all(messages.map((message) => toInboxRow(mailbox, message)));
-      if (rows.length === 0) return 0;
-      // An overlapping tick imports the same batch; the unique index absorbs it.
-      await db.insert(inboxMessages).values(rows).onConflictDoNothing();
-      return rows.length;
+      let imported = 0;
+      for (let i = 0; i < uids.length && Date.now() < deadline; i += SYNC_CHUNK_SIZE) {
+        const messages = await client.fetchAll(
+          uids.slice(i, i + SYNC_CHUNK_SIZE).join(","),
+          { uid: true, threadId: true, internalDate: true, source: { maxLength: MAX_SOURCE_BYTES } },
+          { uid: true },
+        );
+        const rows = await Promise.all(messages.map((message) => toInboxRow(mailbox, message)));
+        if (rows.length === 0) continue;
+        // An overlapping sync imports the same chunk; the unique index absorbs it.
+        await db.insert(inboxMessages).values(rows).onConflictDoNothing();
+        imported += rows.length;
+      }
+      return imported;
     } finally {
       lock.release();
     }
@@ -103,14 +111,18 @@ async function syncMailbox(mailbox: AllowedSender): Promise<number> {
 export async function runInboxSyncTick(): Promise<{ imported: number; failed: number }> {
   let imported = 0;
   let failed = 0;
-  for (const mailbox of ALLOWED_SENDERS) {
-    try {
-      imported += await syncMailbox(mailbox);
-    } catch (error) {
-      failed += 1;
-      console.error(`inbox sync failed for ${mailbox}:`, error);
-    }
-  }
+  // Parallel so a large backlog in one mailbox can't use up the other's time.
+  await Promise.all(
+    ALLOWED_SENDERS.map(async (mailbox) => {
+      try {
+        const count = await syncMailbox(mailbox);
+        imported += count;
+      } catch (error) {
+        failed += 1;
+        console.error(`inbox sync failed for ${mailbox}:`, error);
+      }
+    }),
+  );
   return { imported, failed };
 }
 
